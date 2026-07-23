@@ -152,6 +152,14 @@
   .thumb-placeholder{width:32px; height:32px; border-radius:6px; border:1px solid var(--line); background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--muted); font-weight:700;}
   .sprite-upload-row{display:flex; align-items:center; gap:12px;}
   .sprite-upload-row input[type=file]{flex:1; font-size:12px;}
+
+  .start-skills-box{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:28px;}
+  .start-skills-box h3{font-size:14px; color:var(--gold); margin:0 0 12px;}
+  .skill-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .skill-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:100px; padding:5px 8px 5px 14px; font-size:13px;}
+  .skill-chip button{padding:1px 7px; font-size:12px; border-radius:100px; line-height:1;}
+  .add-skill-row{display:flex; gap:8px; align-items:center;}
+  .add-skill-row select{flex:1;}
   .toolbar{display:flex; gap:10px; margin-bottom:16px;}
   .checkbox-row{display:flex; gap:14px; flex-wrap:wrap; margin-top:4px;}
   .checkbox-row label{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); text-transform:none;}
@@ -755,6 +763,14 @@ async function renderSkillTree(unitId){
   `;
 
   document.getElementById('tree-content').innerHTML = `
+    <div class="start-skills-box" id="start-skills-box">
+      <h3>Start-Skills (ab Level 1, unabhängig vom Baum)</h3>
+      <div class="skill-chips" id="start-skills-chips"><span style="color:var(--muted);font-size:13px;">Lädt…</span></div>
+      <div class="add-skill-row">
+        <select id="add-start-skill-select"></select>
+        <button id="add-start-skill-btn">+ Hinzufügen</button>
+      </div>
+    </div>
     <div class="tree-cols">
       ${renderPath('A', unit.path_a_name || 'Pfad A', pathA)}
       ${renderPath('B', unit.path_b_name || 'Pfad B', pathB)}
@@ -767,6 +783,48 @@ async function renderSkillTree(unitId){
   document.querySelectorAll('.add-node-btn').forEach(btn => {
     btn.addEventListener('click', () => openNodeDrawer(unitId, null, nodes, btn.dataset.path));
   });
+
+  await renderStartSkills(unitId);
+}
+
+async function renderStartSkills(unitId){
+  const { data, error } = await supabase.from('unit_skills')
+    .select('skill_id, sort_order, skills(name)')
+    .eq('unit_id', unitId).eq('is_starting_skill', true).order('sort_order');
+  if (error) { console.error(error); return; }
+  const assigned = data || [];
+  const assignedIds = assigned.map(a => a.skill_id);
+
+  const chipsBox = document.getElementById('start-skills-chips');
+  chipsBox.innerHTML = assigned.length
+    ? assigned.map(a => `
+        <div class="skill-chip">
+          ${a.skills?.name ?? '—'}
+          <button data-skill-id="${a.skill_id}" class="remove-start-skill" title="Entfernen">✕</button>
+        </div>`).join('')
+    : `<span style="color:var(--muted);font-size:13px;">Noch keine Start-Skills zugewiesen.</span>`;
+
+  chipsBox.querySelectorAll('.remove-start-skill').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabase.from('unit_skills').delete().eq('unit_id', unitId).eq('skill_id', btn.dataset.skillId);
+      await renderStartSkills(unitId);
+    });
+  });
+
+  const available = SKILLS.filter(s => !assignedIds.includes(s.id));
+  const select = document.getElementById('add-start-skill-select');
+  select.innerHTML = available.length
+    ? available.map(s => `<option value="${s.id}">${s.name}</option>`).join('')
+    : `<option value="">Alle Skills bereits zugewiesen</option>`;
+
+  document.getElementById('add-start-skill-btn').onclick = async () => {
+    const skillId = select.value;
+    if (!skillId) return;
+    await supabase.from('unit_skills').insert({
+      unit_id: unitId, skill_id: skillId, is_starting_skill: true, sort_order: assigned.length
+    });
+    await renderStartSkills(unitId);
+  };
 }
 
 function openNodeDrawer(unitId, node, allNodes, forcedPath){
