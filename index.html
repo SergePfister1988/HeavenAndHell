@@ -116,13 +116,13 @@
   .overlay.visible{display:flex;}
   .drawer{
     width:460px; max-width:92vw; height:100vh; background:var(--surface);
-    border-left:1px solid var(--line); padding:26px 26px 90px; overflow-y:auto; position:relative;
+    border-left:1px solid var(--line); padding:26px 26px 0; overflow-y:auto; position:relative;
   }
   .drawer h3{margin:0 0 18px;}
   .drawer .close-x{position:absolute; top:20px; right:22px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:2px 6px;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
-  .drawer-actions{position:absolute; bottom:0; left:0; right:0; padding:16px 26px; background:var(--surface); border-top:1px solid var(--line); display:flex; gap:10px;}
+  .drawer-actions{position:sticky; bottom:0; margin:24px -26px 0; padding:16px 26px 22px; background:var(--surface); border-top:1px solid var(--line); display:flex; gap:10px;}
 
   /* ---------- Skill tree builder ---------- */
   .tree-select{margin-bottom:22px; max-width:360px;}
@@ -234,6 +234,11 @@
         </div>
         <button class="primary" id="new-skill-btn">+ Neuer Skill</button>
       </div>
+      <div class="toolbar">
+        <input type="text" id="skill-name-filter" placeholder="Nach Name suchen…" style="max-width:220px;" />
+        <select id="skill-element-filter"><option value="all">Alle Elemente</option></select>
+        <select id="skill-target-filter"><option value="all">Alle Zieltypen</option></select>
+      </div>
       <table>
         <thead><tr>
           <th>Name</th><th>Ziel</th><th>Effekt</th><th>Elemente</th><th>MP</th><th>Stärke</th>
@@ -335,6 +340,11 @@ async function loadLookups(){
 
   const rarSel = document.getElementById('unit-rarity-filter');
   rarSel.innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+
+  const elFilterSel = document.getElementById('skill-element-filter');
+  elFilterSel.innerHTML = `<option value="all">Alle Elemente</option>` + ELEMENTS.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  const targetFilterSel = document.getElementById('skill-target-filter');
+  targetFilterSel.innerHTML = `<option value="all">Alle Zieltypen</option>` + Object.entries(TARGET_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
 }
 
 function optionList(items, selectedId, labelKey='name'){
@@ -617,8 +627,20 @@ const TARGET_LABELS = { self:'Selbst', single_ally:'Einzelner Verbündeter', all
 const EFFECT_LABELS = { damage:'Schaden', heal:'Heilung', buff:'Buff', debuff:'Debuff', shield:'Schild', revive:'Wiederbelebung', dot:'Schaden über Zeit', cleanse:'Reinigung' };
 
 function renderSkillsTable(){
+  const nameFilter = document.getElementById('skill-name-filter').value.trim().toLowerCase();
+  const elFilter = document.getElementById('skill-element-filter').value;
+  const targetFilter = document.getElementById('skill-target-filter').value;
+
   const tbody = document.getElementById('skills-table-body');
-  tbody.innerHTML = SKILLS.map(s => {
+  const filtered = SKILLS.filter(s => {
+    const nameOk = !nameFilter || s.name.toLowerCase().includes(nameFilter);
+    const elIds = (s.skill_elements||[]).map(se => String(se.element_id ?? se.id));
+    const elOk = elFilter==='all' || elIds.includes(String(elFilter));
+    const targetOk = targetFilter==='all' || s.target_type === targetFilter;
+    return nameOk && elOk && targetOk;
+  });
+
+  tbody.innerHTML = filtered.map(s => {
     const elNames = (s.skill_elements||[]).map(se => ELEMENTS.find(e=>e.id===se.element_id)?.name).filter(Boolean).join(' + ') || '—';
     return `<tr data-id="${s.id}">
       <td><strong>${s.name}</strong></td>
@@ -628,13 +650,16 @@ function renderSkillsTable(){
       <td class="mono">${s.mp_cost}</td>
       <td class="mono">${s.power}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Skills angelegt.</td></tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Keine Skills gefunden.</td></tr>`;
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
     tr.addEventListener('click', () => openSkillDrawer(SKILLS.find(s => s.id === tr.dataset.id)));
   });
 }
 document.getElementById('new-skill-btn').addEventListener('click', () => openSkillDrawer(null));
+document.getElementById('skill-name-filter').addEventListener('input', renderSkillsTable);
+document.getElementById('skill-element-filter').addEventListener('change', renderSkillsTable);
+document.getElementById('skill-target-filter').addEventListener('change', renderSkillsTable);
 
 function openSkillDrawer(skill){
   const isNew = !skill;
@@ -986,7 +1011,9 @@ function openNodeDrawer(unitId, node, allNodes, forcedPath){
 // ============================================================
 function openOverlay(){ document.getElementById('overlay').classList.add('visible'); }
 function closeOverlay(){ document.getElementById('overlay').classList.remove('visible'); }
-document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay') closeOverlay(); });
+let _overlayMouseDownOnBackdrop = false;
+document.getElementById('overlay').addEventListener('mousedown', (e) => { _overlayMouseDownOnBackdrop = (e.target.id === 'overlay'); });
+document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay' && _overlayMouseDownOnBackdrop) closeOverlay(); });
 
 // ============================================================
 // START: bestehende Session prüfen
