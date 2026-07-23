@@ -128,6 +128,9 @@
   .tree-select{margin-bottom:22px; max-width:360px;}
   .tree-cols{display:grid; grid-template-columns:1fr 1fr; gap:36px;}
   .tree-path h3{font-size:15px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:18px;}
+  .template-row{display:flex; gap:6px; margin-bottom:16px;}
+  .template-row select{flex:1; font-size:12.5px; padding:7px 9px;}
+  .template-row button{font-size:12px; padding:7px 10px; white-space:nowrap;}
   .node-chain{display:flex; flex-direction:column; align-items:center;}
   .node-card{
     width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
@@ -285,7 +288,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // ---------- Lookup-Caches ----------
-let ELEMENTS = [], CLASSES = [], RARITIES = [], SKILLS = [], UNITS = [];
+let ELEMENTS = [], CLASSES = [], RARITIES = [], SKILLS = [], UNITS = [], TEMPLATES = [];
 
 // ============================================================
 // AUTH
@@ -774,15 +777,26 @@ document.getElementById('tree-unit-select').addEventListener('change', async (e)
 
 async function renderSkillTree(unitId){
   const unit = UNITS.find(u => u.id === unitId);
-  const { data, error } = await supabase.from('skill_tree_nodes').select('*').eq('unit_id', unitId).order('sort_order');
+  const [{ data, error }, tplRes] = await Promise.all([
+    supabase.from('skill_tree_nodes').select('*').eq('unit_id', unitId).order('sort_order'),
+    supabase.from('path_templates').select('*').order('name'),
+  ]);
   if (error) { console.error(error); return; }
   const nodes = data || [];
+  TEMPLATES = tplRes.data || [];
   const pathA = nodes.filter(n => n.path_label === 'A');
   const pathB = nodes.filter(n => n.path_label === 'B');
+
+  const templateOptions = `<option value="">— Vorlage wählen —</option>` + TEMPLATES.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
   const renderPath = (label, name, list) => `
     <div class="tree-path">
       <h3>${name}</h3>
+      <div class="template-row">
+        <select class="tpl-select" data-path="${label}">${templateOptions}</select>
+        <button class="tpl-apply-btn" data-path="${label}" title="Gewählte Vorlage auf diesen Pfad anwenden (ersetzt bestehende Knoten)">Anwenden</button>
+        <button class="tpl-save-btn ghost" data-path="${label}" title="Diesen Pfad als neue Vorlage speichern">💾 Als Vorlage</button>
+      </div>
       <div class="node-chain">
         ${list.map((n,i) => `
           ${i>0?'<div class="connector"></div>':''}
@@ -820,6 +834,16 @@ async function renderSkillTree(unitId){
   });
   document.querySelectorAll('.add-node-btn').forEach(btn => {
     btn.addEventListener('click', () => openNodeDrawer(unitId, null, nodes, btn.dataset.path));
+  });
+  document.querySelectorAll('.tpl-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveAsTemplate(unitId, btn.dataset.path, nodes.filter(n=>n.path_label===btn.dataset.path)));
+  });
+  document.querySelectorAll('.tpl-apply-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const select = document.querySelector(`.tpl-select[data-path="${btn.dataset.path}"]`);
+      if (!select.value) { alert('Bitte zuerst eine Vorlage auswählen.'); return; }
+      applyTemplate(unitId, btn.dataset.path, select.value);
+    });
   });
 
   await renderStartSkills(unitId);
@@ -863,6 +887,83 @@ async function renderStartSkills(unitId){
     });
     await renderStartSkills(unitId);
   };
+}
+
+// ============================================================
+// PFAD-VORLAGEN (wiederverwendbare Skillbaum-Pfade)
+// ============================================================
+async function saveAsTemplate(unitId, pathLabel, pathNodes){
+  if (!pathNodes.length) { alert('Dieser Pfad hat noch keine Knoten zum Speichern.'); return; }
+  const name = prompt('Name der neuen Vorlage (z.B. "Erdpfad - Gewöhnlich"):');
+  if (!name) return;
+
+  const { data: tpl, error: tplErr } = await supabase.from('path_templates').insert({ name }).select().single();
+  if (tplErr) { alert('Fehler beim Speichern der Vorlage: ' + tplErr.message); return; }
+
+  const templateNodes = pathNodes.map(n => ({
+    template_id: tpl.id,
+    sort_order: n.sort_order,
+    node_type: n.node_type,
+    name: n.name,
+    description: n.description,
+    unlocks_skill_id: n.unlocks_skill_id,
+    boosts_skill_id: n.boosts_skill_id,
+    boosts_stat: n.boosts_stat,
+    effect_value_per_rank: n.effect_value_per_rank,
+    sp_cost_per_rank: n.sp_cost_per_rank,
+    rank_cap_star1: n.rank_cap_star1,
+    rank_cap_star2: n.rank_cap_star2,
+    rank_cap_star4: n.rank_cap_star4,
+    required_star_level: n.required_star_level,
+  }));
+  const { error } = await supabase.from('path_template_nodes').insert(templateNodes);
+  if (error) { alert('Fehler beim Speichern der Knoten: ' + error.message); return; }
+
+  alert(`Vorlage "${name}" gespeichert (${templateNodes.length} Knoten).`);
+  await renderSkillTree(unitId);
+}
+
+async function applyTemplate(unitId, pathLabel, templateId){
+  const tpl = TEMPLATES.find(t => t.id === templateId);
+  if (!confirm(`Vorlage "${tpl?.name}" auf diesen Pfad anwenden? Bestehende Knoten in diesem Pfad werden dabei ERSETZT.`)) return;
+
+  const { data: tplNodes, error: tplErr } = await supabase.from('path_template_nodes').select('*').eq('template_id', templateId).order('sort_order');
+  if (tplErr) { alert('Fehler beim Laden der Vorlage: ' + tplErr.message); return; }
+
+  // Bestehende Knoten in diesem Pfad löschen
+  const { error: delErr } = await supabase.from('skill_tree_nodes').delete().eq('unit_id', unitId).eq('path_label', pathLabel);
+  if (delErr) { alert('Fehler beim Ersetzen der Knoten: ' + delErr.message); return; }
+
+  // Neue Knoten aus der Vorlage einfügen
+  const newNodes = (tplNodes || []).map(n => ({
+    unit_id: unitId,
+    path_label: pathLabel,
+    sort_order: n.sort_order,
+    node_type: n.node_type,
+    name: n.name,
+    description: n.description,
+    unlocks_skill_id: n.unlocks_skill_id,
+    boosts_skill_id: n.boosts_skill_id,
+    boosts_stat: n.boosts_stat,
+    effect_value_per_rank: n.effect_value_per_rank,
+    sp_cost_per_rank: n.sp_cost_per_rank,
+    rank_cap_star1: n.rank_cap_star1,
+    rank_cap_star2: n.rank_cap_star2,
+    rank_cap_star4: n.rank_cap_star4,
+    required_star_level: n.required_star_level,
+  }));
+  if (newNodes.length) {
+    const { error: insErr } = await supabase.from('skill_tree_nodes').insert(newNodes);
+    if (insErr) { alert('Fehler beim Einfügen der Vorlagen-Knoten: ' + insErr.message); return; }
+  }
+
+  // Voraussetzungen neu verketten (jeder Knoten braucht Vorgänger im selben Pfad)
+  const { data: freshNodes } = await supabase.from('skill_tree_nodes').select('id, sort_order').eq('unit_id', unitId).eq('path_label', pathLabel).order('sort_order');
+  for (let i = 1; i < (freshNodes||[]).length; i++) {
+    await supabase.from('skill_tree_nodes').update({ prerequisite_node_id: freshNodes[i-1].id }).eq('id', freshNodes[i].id);
+  }
+
+  await renderSkillTree(unitId);
 }
 
 function openNodeDrawer(unitId, node, allNodes, forcedPath){
