@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Talheim — Helden-Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17150f;
+    --surface:#211e17;
+    --surface-2:#2b271d;
+    --surface-3:#38321f;
+    --line:#4a4230;
+    --text:#ece4d2;
+    --muted:#9c9080;
+    --gold:#c9a24b;
+    --gold-soft:#8f7838;
+    --ember:#b8562f;
+    --water:#3d7ea6;
+    --earth:#a3823f;
+    --air:#8fb39a;
+    --danger:#a5473a;
+    --ok:#5f8f5a;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at top left, #221f16 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Cinzel',serif; letter-spacing:.03em;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  a{color:var(--gold);}
+
+  /* ---------- Login ---------- */
+  #login-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(180deg, #1a1712, #100e0a);
+  }
+  .login-card{
+    width:340px; padding:36px 32px; background:var(--surface);
+    border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .login-card h1{font-size:22px; margin:0 0 4px; color:var(--gold);}
+  .login-card p.sub{color:var(--muted); font-size:13px; margin:0 0 22px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.06em;}
+  input[type=text], input[type=password], input[type=number], input[type=email], select, textarea{
+    width:100%; padding:9px 11px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:6px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--gold-soft); outline-offset:1px;}
+  button{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer;
+    border-radius:6px; border:1px solid var(--line); background:var(--surface-3); color:var(--text);
+    padding:9px 16px;
+  }
+  button:hover{border-color:var(--gold-soft);}
+  button.primary{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
+  button.primary:hover{background:var(--gold);}
+  button.danger{background:transparent; border-color:var(--danger); color:#e0a294;}
+  button.ghost{background:transparent;}
+  .full{width:100%;}
+  #login-error{color:#e0a294; font-size:13px; margin-top:10px; min-height:16px;}
+
+  /* ---------- App shell ---------- */
+  #app{display:none; min-height:100vh; grid-template-columns:220px 1fr;}
+  #app.visible{display:grid;}
+  #sidebar{
+    background:var(--surface); border-right:1px solid var(--line);
+    padding:22px 14px; display:flex; flex-direction:column;
+  }
+  #sidebar .brand{font-size:18px; color:var(--gold); margin:0 6px 26px;}
+  #sidebar .brand span{display:block; font-family:'Inter',sans-serif; font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-top:2px;}
+  .nav-btn{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; margin-bottom:4px;
+    border-radius:8px; color:var(--muted); cursor:pointer; font-size:14px; font-weight:500;
+    border:1px solid transparent; background:transparent;
+  }
+  .nav-btn:hover{color:var(--text);}
+  .nav-btn.active{background:var(--surface-3); color:var(--gold); border-color:var(--line);}
+  #sidebar .spacer{flex:1;}
+
+  main{padding:30px 36px; overflow-y:auto; max-height:100vh;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .view-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  .view-header h2{margin:0; font-size:24px;}
+  .view-header p{color:var(--muted); font-size:13px; margin:4px 0 0;}
+
+  table{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  th,td{text-align:left; padding:10px 14px; font-size:13.5px; border-bottom:1px solid var(--line);}
+  th{color:var(--muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; background:var(--surface-2);}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:var(--surface-2);}
+  tbody tr:last-child td{border-bottom:none;}
+
+  .badge{display:inline-block; padding:2px 9px; border-radius:100px; font-size:11px; font-weight:600; letter-spacing:.02em;}
+  .badge.hero{background:rgba(201,162,75,.18); color:var(--gold);}
+  .badge.monster{background:rgba(165,71,58,.18); color:#d38473;}
+  .badge.rarity-Gewöhnlich{background:#3a362c; color:#c7bfa8;}
+  .badge.rarity-Stark{background:#2b3e34; color:#9fcdae;}
+  .badge.rarity-Held{background:#2c3550; color:#a9b8ea;}
+  .badge.rarity-Episch{background:#4a2c50; color:#dcaaee;}
+
+  /* ---------- Modal / drawer ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(10,9,6,.6); display:none; align-items:flex-start; justify-content:flex-end; z-index:50;}
+  .overlay.visible{display:flex;}
+  .drawer{
+    width:460px; max-width:92vw; height:100vh; background:var(--surface);
+    border-left:1px solid var(--line); padding:26px 26px 90px; overflow-y:auto; position:relative;
+  }
+  .drawer h3{margin:0 0 18px;}
+  .drawer .close-x{position:absolute; top:20px; right:22px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:2px 6px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+  .drawer-actions{position:absolute; bottom:0; left:0; right:0; padding:16px 26px; background:var(--surface); border-top:1px solid var(--line); display:flex; gap:10px;}
+
+  /* ---------- Skill tree builder ---------- */
+  .tree-select{margin-bottom:22px; max-width:360px;}
+  .tree-cols{display:grid; grid-template-columns:1fr 1fr; gap:36px;}
+  .tree-path h3{font-size:15px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:18px;}
+  .node-chain{display:flex; flex-direction:column; align-items:center;}
+  .node-card{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; cursor:pointer; position:relative;
+  }
+  .node-card:hover{border-color:var(--gold-soft);}
+  .node-card .ntype{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;}
+  .node-card .ntype.unlock{color:var(--air);}
+  .node-card .ntype.upgrade{color:var(--gold);}
+  .node-card .nname{font-size:14px; font-weight:600; margin:3px 0 2px;}
+  .node-card .nmeta{font-size:11.5px; color:var(--muted);}
+  .connector{width:2px; height:26px; background:linear-gradient(var(--gold-soft), var(--line)); position:relative;}
+  .connector::before{
+    content:''; position:absolute; left:50%; top:50%; width:7px; height:7px; background:var(--gold-soft);
+    transform:translate(-50%,-50%) rotate(45deg); border-radius:1px;
+  }
+  .add-node-btn{margin-top:14px; width:100%; border-style:dashed; color:var(--muted);}
+  .star-req{display:inline-block; margin-left:6px; color:var(--gold); font-size:11px;}
+
+  .empty-hint{color:var(--muted); font-size:13.5px; padding:40px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius);}
+  .toolbar{display:flex; gap:10px; margin-bottom:16px;}
+  .checkbox-row{display:flex; gap:14px; flex-wrap:wrap; margin-top:4px;}
+  .checkbox-row label{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); text-transform:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Talheim</h1>
+    <p class="sub">Helden- &amp; Monster-Editor — Admin-Zugang</p>
+    <div class="field">
+      <label>E-Mail</label>
+      <input type="email" id="login-email" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Passwort</label>
+      <input type="password" id="login-password" autocomplete="current-password" />
+    </div>
+    <button class="primary full" id="login-btn">Anmelden</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">Talheim<span>Content-Editor</span></div>
+    <button class="nav-btn active" data-view="units">⚔ Einheiten</button>
+    <button class="nav-btn" data-view="skills">✦ Skills</button>
+    <button class="nav-btn" data-view="tree">🌳 Skillbaum</button>
+    <div class="spacer"></div>
+    <button class="nav-btn ghost" id="logout-btn">↩ Abmelden</button>
+  </aside>
+
+  <main>
+    <!-- ---------- UNITS VIEW ---------- -->
+    <section class="view active" id="view-units">
+      <div class="view-header">
+        <div>
+          <h2>Einheiten</h2>
+          <p>Helden und Monster — alle Basiswerte, Klasse, Element und Seltenheit.</p>
+        </div>
+        <button class="primary" id="new-unit-btn">+ Neue Einheit</button>
+      </div>
+      <div class="toolbar">
+        <select id="unit-filter">
+          <option value="all">Alle anzeigen</option>
+          <option value="hero">Nur Helden</option>
+          <option value="monster">Nur Monster</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Typ</th><th>Klasse</th><th>Element</th><th>Seltenheit</th>
+          <th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>MP</th>
+        </tr></thead>
+        <tbody id="units-table-body"></tbody>
+      </table>
+    </section>
+
+    <!-- ---------- SKILLS VIEW ---------- -->
+    <section class="view" id="view-skills">
+      <div class="view-header">
+        <div>
+          <h2>Skills</h2>
+          <p>Alle Fähigkeiten, unabhängig davon welcher Held/welches Monster sie nutzt.</p>
+        </div>
+        <button class="primary" id="new-skill-btn">+ Neuer Skill</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Ziel</th><th>Effekt</th><th>Elemente</th><th>MP</th><th>Stärke</th>
+        </tr></thead>
+        <tbody id="skills-table-body"></tbody>
+      </table>
+    </section>
+
+    <!-- ---------- SKILL TREE VIEW ---------- -->
+    <section class="view" id="view-tree">
+      <div class="view-header">
+        <div>
+          <h2>Skillbaum</h2>
+          <p>Individueller Baum pro Held: 2 Pfade, Knoten vom Typ Freischalten oder Verstärken.</p>
+        </div>
+      </div>
+      <div class="tree-select">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Held auswählen</label>
+        <select id="tree-unit-select"></select>
+      </div>
+      <div id="tree-content"><div class="empty-hint">Wähle oben einen Helden aus, um seinen Skillbaum zu bearbeiten.</div></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ OVERLAY / DRAWER (generisch, Inhalt wird per JS befüllt) ============ -->
+<div class="overlay" id="overlay">
+  <div class="drawer" id="drawer"></div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============================================================
+// KONFIGURATION — hier deine eigenen Supabase-Zugangsdaten eintragen
+// (Projekt-Einstellungen > API in deinem Supabase-Dashboard)
+// ============================================================
+const SUPABASE_URL = 'https://DEIN-PROJEKT.supabase.co';
+const SUPABASE_ANON_KEY = 'DEIN-ANON-KEY';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false } // Admin-Tool: bewusst kein localStorage, einfach neu einloggen bei Reload
+});
+
+// ---------- Lookup-Caches ----------
+let ELEMENTS = [], CLASSES = [], RARITIES = [], SKILLS = [], UNITS = [];
+
+// ============================================================
+// AUTH
+// ============================================================
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errBox = document.getElementById('login-error');
+  errBox.textContent = '';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) { errBox.textContent = 'Anmeldung fehlgeschlagen: ' + error.message; return; }
+  await enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function enterApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  await loadLookups();
+  await refreshUnits();
+  await refreshSkills();
+  populateTreeUnitSelect();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+  });
+});
+
+// ============================================================
+// LOOKUPS (Elemente, Klassen, Seltenheit, Skills)
+// ============================================================
+async function loadLookups(){
+  const [el, cl, ra, sk] = await Promise.all([
+    supabase.from('elements').select('*').order('id'),
+    supabase.from('classes').select('*').order('id'),
+    supabase.from('rarities').select('*').order('sort_order'),
+    supabase.from('skills').select('*').order('name'),
+  ]);
+  ELEMENTS = el.data || []; CLASSES = cl.data || []; RARITIES = ra.data || []; SKILLS = sk.data || [];
+}
+
+function optionList(items, selectedId, labelKey='name'){
+  return items.map(i => `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${i[labelKey]}</option>`).join('');
+}
+
+// ============================================================
+// EINHEITEN (Helden & Monster)
+// ============================================================
+async function refreshUnits(){
+  const { data, error } = await supabase.from('units').select('*, classes(name), elements(name), rarities(name)').order('name');
+  if (error) { console.error(error); return; }
+  UNITS = data || [];
+  renderUnitsTable();
+}
+
+function renderUnitsTable(){
+  const filter = document.getElementById('unit-filter').value;
+  const tbody = document.getElementById('units-table-body');
+  const rows = UNITS.filter(u => filter==='all' || (filter==='hero' ? u.is_playable : !u.is_playable));
+  tbody.innerHTML = rows.map(u => `
+    <tr data-id="${u.id}">
+      <td><strong>${u.name}</strong></td>
+      <td><span class="badge ${u.is_playable?'hero':'monster'}">${u.is_playable?'Held':'Monster'}</span></td>
+      <td>${u.classes?.name ?? '—'}</td>
+      <td>${u.elements?.name ?? '—'}</td>
+      <td>${u.rarities ? `<span class="badge rarity-${u.rarities.name}">${u.rarities.name}</span>` : '—'}</td>
+      <td class="mono">${u.base_hp}</td>
+      <td class="mono">${u.base_atk}</td>
+      <td class="mono">${u.base_def}</td>
+      <td class="mono">${u.base_spd}</td>
+      <td class="mono">${u.base_mp}</td>
+    </tr>`).join('') || `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Einheiten angelegt.</td></tr>`;
+
+  tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => openUnitDrawer(UNITS.find(u => u.id === tr.dataset.id)));
+  });
+}
+document.getElementById('unit-filter').addEventListener('change', renderUnitsTable);
+document.getElementById('new-unit-btn').addEventListener('click', () => openUnitDrawer(null));
+
+function openUnitDrawer(unit){
+  const isNew = !unit;
+  const u = unit || {
+    name:'', is_playable:true, class_id:CLASSES[0]?.id, element_id:ELEMENTS[0]?.id, rarity_id:RARITIES[0]?.id,
+    style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10, base_mp:20,
+    growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5, growth_mp:1,
+    path_a_name:'Pfad A', path_b_name:'Pfad B', area_tag:'', is_mini_boss:false, is_boss:false
+  };
+
+  document.getElementById('drawer').innerHTML = `
+    <button class="close-x" id="drawer-close">✕</button>
+    <h3>${isNew ? 'Neue Einheit' : u.name}</h3>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="f-name" value="${u.name}" />
+    </div>
+
+    <div class="field">
+      <label>Typ</label>
+      <select id="f-is-playable">
+        <option value="true" ${u.is_playable?'selected':''}>Held (spielbar)</option>
+        <option value="false" ${!u.is_playable?'selected':''}>Monster</option>
+      </select>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Klasse</label>
+        <select id="f-class">${optionList(CLASSES, u.class_id)}</select>
+      </div>
+      <div class="field">
+        <label>Element</label>
+        <select id="f-element">${optionList(ELEMENTS, u.element_id)}</select>
+      </div>
+    </div>
+
+    <div class="field" id="rarity-field">
+      <label>Seltenheit</label>
+      <select id="f-rarity">${optionList(RARITIES, u.rarity_id)}</select>
+    </div>
+
+    <div class="field">
+      <label>Stil / Rolle</label>
+      <input type="text" id="f-style" value="${u.style || ''}" placeholder="z.B. einfacher Nahkämpfer" />
+    </div>
+
+    <div class="field">
+      <label>Beschreibung</label>
+      <textarea id="f-desc">${u.description || ''}</textarea>
+    </div>
+
+    <h3 style="font-size:14px;margin-top:22px;">Basiswerte (Lvl 1)</h3>
+    <div class="row3">
+      <div class="field"><label>HP</label><input type="number" id="f-hp" value="${u.base_hp}" /></div>
+      <div class="field"><label>ATK</label><input type="number" id="f-atk" value="${u.base_atk}" /></div>
+      <div class="field"><label>DEF</label><input type="number" id="f-def" value="${u.base_def}" /></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>SPD</label><input type="number" id="f-spd" value="${u.base_spd}" /></div>
+      <div class="field"><label>MP</label><input type="number" id="f-mp" value="${u.base_mp}" /></div>
+    </div>
+
+    <h3 style="font-size:14px;margin-top:22px;">Wachstum pro Level</h3>
+    <div class="row3">
+      <div class="field"><label>HP/Lvl</label><input type="number" step="0.1" id="f-g-hp" value="${u.growth_hp}" /></div>
+      <div class="field"><label>ATK/Lvl</label><input type="number" step="0.1" id="f-g-atk" value="${u.growth_atk}" /></div>
+      <div class="field"><label>DEF/Lvl</label><input type="number" step="0.1" id="f-g-def" value="${u.growth_def}" /></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>SPD/Lvl</label><input type="number" step="0.1" id="f-g-spd" value="${u.growth_spd}" /></div>
+      <div class="field"><label>MP/Lvl</label><input type="number" step="0.1" id="f-g-mp" value="${u.growth_mp}" /></div>
+    </div>
+
+    <div id="hero-only-fields">
+      <h3 style="font-size:14px;margin-top:22px;">Skillbaum-Pfade</h3>
+      <div class="row2">
+        <div class="field"><label>Name Pfad A</label><input type="text" id="f-patha" value="${u.path_a_name || 'Pfad A'}" /></div>
+        <div class="field"><label>Name Pfad B</label><input type="text" id="f-pathb" value="${u.path_b_name || 'Pfad B'}" /></div>
+      </div>
+    </div>
+
+    <div id="monster-only-fields">
+      <h3 style="font-size:14px;margin-top:22px;">Monster-Details</h3>
+      <div class="field"><label>Gebiet</label><input type="text" id="f-area" value="${u.area_tag || ''}" placeholder="z.B. Wald der Anfänge" /></div>
+      <div class="checkbox-row">
+        <label><input type="checkbox" id="f-minib" ${u.is_mini_boss?'checked':''}/> Mini-Boss</label>
+        <label><input type="checkbox" id="f-boss" ${u.is_boss?'checked':''}/> Boss</label>
+      </div>
+    </div>
+
+    <div class="drawer-actions">
+      <button class="primary" id="save-unit">${isNew?'Erstellen':'Speichern'}</button>
+      ${!isNew ? '<button class="danger" id="delete-unit">Löschen</button>' : ''}
+      <button class="ghost" id="cancel-unit">Abbrechen</button>
+    </div>
+  `;
+
+  const togglePlayableFields = () => {
+    const isHero = document.getElementById('f-is-playable').value === 'true';
+    document.getElementById('hero-only-fields').style.display = isHero ? 'block' : 'none';
+    document.getElementById('monster-only-fields').style.display = isHero ? 'none' : 'block';
+    document.getElementById('rarity-field').style.display = isHero ? 'block' : 'none';
+  };
+  document.getElementById('f-is-playable').addEventListener('change', togglePlayableFields);
+  togglePlayableFields();
+
+  openOverlay();
+  document.getElementById('drawer-close').addEventListener('click', closeOverlay);
+  document.getElementById('cancel-unit').addEventListener('click', closeOverlay);
+
+  document.getElementById('save-unit').addEventListener('click', async () => {
+    const payload = {
+      name: document.getElementById('f-name').value.trim(),
+      is_playable: document.getElementById('f-is-playable').value === 'true',
+      class_id: document.getElementById('f-class').value,
+      element_id: document.getElementById('f-element').value,
+      rarity_id: document.getElementById('f-rarity').value || null,
+      style: document.getElementById('f-style').value,
+      description: document.getElementById('f-desc').value,
+      base_hp: +document.getElementById('f-hp').value,
+      base_atk: +document.getElementById('f-atk').value,
+      base_def: +document.getElementById('f-def').value,
+      base_spd: +document.getElementById('f-spd').value,
+      base_mp: +document.getElementById('f-mp').value,
+      growth_hp: +document.getElementById('f-g-hp').value,
+      growth_atk: +document.getElementById('f-g-atk').value,
+      growth_def: +document.getElementById('f-g-def').value,
+      growth_spd: +document.getElementById('f-g-spd').value,
+      growth_mp: +document.getElementById('f-g-mp').value,
+      path_a_name: document.getElementById('f-patha').value,
+      path_b_name: document.getElementById('f-pathb').value,
+      area_tag: document.getElementById('f-area').value,
+      is_mini_boss: document.getElementById('f-minib').checked,
+      is_boss: document.getElementById('f-boss').checked,
+    };
+    const { error } = isNew
+      ? await supabase.from('units').insert(payload)
+      : await supabase.from('units').update(payload).eq('id', u.id);
+    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    closeOverlay();
+    await refreshUnits();
+    populateTreeUnitSelect();
+  });
+
+  if (!isNew) {
+    document.getElementById('delete-unit').addEventListener('click', async () => {
+      if (!confirm(`"${u.name}" wirklich löschen?`)) return;
+      const { error } = await supabase.from('units').delete().eq('id', u.id);
+      if (error) { alert('Fehler beim Löschen: ' + error.message); return; }
+      closeOverlay();
+      await refreshUnits();
+      populateTreeUnitSelect();
+    });
+  }
+}
+
+// ============================================================
+// SKILLS
+// ============================================================
+async function refreshSkills(){
+  const { data, error } = await supabase.from('skills').select('*, skill_elements(element_id)').order('name');
+  if (error) { console.error(error); return; }
+  SKILLS = data || [];
+  renderSkillsTable();
+}
+
+const TARGET_LABELS = { self:'Selbst', single_ally:'Einzelner Verbündeter', all_allies:'Alle Verbündeten', single_enemy:'Einzelner Gegner', all_enemies:'Alle Gegner' };
+const EFFECT_LABELS = { damage:'Schaden', heal:'Heilung', buff:'Buff', debuff:'Debuff', shield:'Schild', revive:'Wiederbelebung', dot:'Schaden über Zeit', cleanse:'Reinigung' };
+
+function renderSkillsTable(){
+  const tbody = document.getElementById('skills-table-body');
+  tbody.innerHTML = SKILLS.map(s => {
+    const elNames = (s.skill_elements||[]).map(se => ELEMENTS.find(e=>e.id===se.element_id)?.name).filter(Boolean).join(' + ') || '—';
+    return `<tr data-id="${s.id}">
+      <td><strong>${s.name}</strong></td>
+      <td>${TARGET_LABELS[s.target_type] || s.target_type}</td>
+      <td>${EFFECT_LABELS[s.effect_type] || s.effect_type}</td>
+      <td>${elNames}</td>
+      <td class="mono">${s.mp_cost}</td>
+      <td class="mono">${s.power}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Skills angelegt.</td></tr>`;
+
+  tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => openSkillDrawer(SKILLS.find(s => s.id === tr.dataset.id)));
+  });
+}
+document.getElementById('new-skill-btn').addEventListener('click', () => openSkillDrawer(null));
+
+function openSkillDrawer(skill){
+  const isNew = !skill;
+  const s = skill || { name:'', description:'', mp_cost:10, target_type:'single_enemy', effect_type:'damage', power:100, duration_turns:null, skill_elements:[] };
+  const activeElIds = (s.skill_elements||[]).map(se => se.element_id ?? se.id);
+
+  document.getElementById('drawer').innerHTML = `
+    <button class="close-x" id="drawer-close">✕</button>
+    <h3>${isNew ? 'Neuer Skill' : s.name}</h3>
+
+    <div class="field"><label>Name</label><input type="text" id="s-name" value="${s.name}" /></div>
+    <div class="field"><label>Beschreibung</label><textarea id="s-desc">${s.description||''}</textarea></div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Zieltyp</label>
+        <select id="s-target">${Object.entries(TARGET_LABELS).map(([k,v])=>`<option value="${k}" ${s.target_type===k?'selected':''}>${v}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Effekttyp</label>
+        <select id="s-effect">${Object.entries(EFFECT_LABELS).map(([k,v])=>`<option value="${k}" ${s.effect_type===k?'selected':''}>${v}</option>`).join('')}</select>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="field"><label>MP-Kosten</label><input type="number" id="s-mp" value="${s.mp_cost}" /></div>
+      <div class="field"><label>Stärke</label><input type="number" id="s-power" value="${s.power}" /></div>
+      <div class="field"><label>Dauer (Runden)</label><input type="number" id="s-duration" value="${s.duration_turns ?? ''}" /></div>
+    </div>
+
+    <div class="field">
+      <label>Elemente (mehrere möglich, z.B. Blizzard = Luft+Wasser)</label>
+      <div class="checkbox-row">
+        ${ELEMENTS.map(e => `<label><input type="checkbox" class="s-el" value="${e.id}" ${activeElIds.includes(e.id)?'checked':''}/> ${e.name}</label>`).join('')}
+      </div>
+    </div>
+
+    <div class="drawer-actions">
+      <button class="primary" id="save-skill">${isNew?'Erstellen':'Speichern'}</button>
+      ${!isNew ? '<button class="danger" id="delete-skill">Löschen</button>' : ''}
+      <button class="ghost" id="cancel-skill">Abbrechen</button>
+    </div>
+  `;
+
+  openOverlay();
+  document.getElementById('drawer-close').addEventListener('click', closeOverlay);
+  document.getElementById('cancel-skill').addEventListener('click', closeOverlay);
+
+  document.getElementById('save-skill').addEventListener('click', async () => {
+    const payload = {
+      name: document.getElementById('s-name').value.trim(),
+      description: document.getElementById('s-desc').value,
+      target_type: document.getElementById('s-target').value,
+      effect_type: document.getElementById('s-effect').value,
+      mp_cost: +document.getElementById('s-mp').value,
+      power: +document.getElementById('s-power').value,
+      duration_turns: document.getElementById('s-duration').value ? +document.getElementById('s-duration').value : null,
+    };
+    let skillId = s.id;
+    if (isNew){
+      const { data, error } = await supabase.from('skills').insert(payload).select().single();
+      if (error) { alert('Fehler: ' + error.message); return; }
+      skillId = data.id;
+    } else {
+      const { error } = await supabase.from('skills').update(payload).eq('id', s.id);
+      if (error) { alert('Fehler: ' + error.message); return; }
+      await supabase.from('skill_elements').delete().eq('skill_id', s.id);
+    }
+    const chosenEls = [...document.querySelectorAll('.s-el:checked')].map(cb => ({ skill_id: skillId, element_id: cb.value }));
+    if (chosenEls.length) await supabase.from('skill_elements').insert(chosenEls);
+
+    closeOverlay();
+    await refreshSkills();
+  });
+
+  if (!isNew) {
+    document.getElementById('delete-skill').addEventListener('click', async () => {
+      if (!confirm(`Skill "${s.name}" wirklich löschen?`)) return;
+      const { error } = await supabase.from('skills').delete().eq('id', s.id);
+      if (error) { alert('Fehler beim Löschen: ' + error.message); return; }
+      closeOverlay();
+      await refreshSkills();
+    });
+  }
+}
+
+// ============================================================
+// SKILLBAUM (visueller Builder)
+// ============================================================
+function populateTreeUnitSelect(){
+  const sel = document.getElementById('tree-unit-select');
+  const heroes = UNITS.filter(u => u.is_playable);
+  sel.innerHTML = `<option value="">— auswählen —</option>` + heroes.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+}
+document.getElementById('tree-unit-select').addEventListener('change', async (e) => {
+  if (!e.target.value) { document.getElementById('tree-content').innerHTML = `<div class="empty-hint">Wähle oben einen Helden aus, um seinen Skillbaum zu bearbeiten.</div>`; return; }
+  await renderSkillTree(e.target.value);
+});
+
+async function renderSkillTree(unitId){
+  const unit = UNITS.find(u => u.id === unitId);
+  const { data, error } = await supabase.from('skill_tree_nodes').select('*').eq('unit_id', unitId).order('sort_order');
+  if (error) { console.error(error); return; }
+  const nodes = data || [];
+  const pathA = nodes.filter(n => n.path_label === 'A');
+  const pathB = nodes.filter(n => n.path_label === 'B');
+
+  const renderPath = (label, name, list) => `
+    <div class="tree-path">
+      <h3>${name}</h3>
+      <div class="node-chain">
+        ${list.map((n,i) => `
+          ${i>0?'<div class="connector"></div>':''}
+          <div class="node-card" data-id="${n.id}">
+            <span class="ntype ${n.node_type}">${n.node_type === 'unlock' ? 'Freischalten' : 'Verstärken'}</span>
+            ${n.required_star_level>1 ? `<span class="star-req">ab ${n.required_star_level}★</span>` : ''}
+            <div class="nname">${n.name}</div>
+            <div class="nmeta">${n.node_type==='unlock'
+              ? '1 SP · schaltet Skill frei'
+              : `${n.sp_cost_per_rank} SP/Rang · Ränge: ${n.rank_cap_star1}→${n.rank_cap_star2}→${n.rank_cap_star4}`}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="add-node-btn" data-path="${label}">+ Knoten hinzufügen</button>
+    </div>
+  `;
+
+  document.getElementById('tree-content').innerHTML = `
+    <div class="tree-cols">
+      ${renderPath('A', unit.path_a_name || 'Pfad A', pathA)}
+      ${renderPath('B', unit.path_b_name || 'Pfad B', pathB)}
+    </div>
+  `;
+
+  document.querySelectorAll('.node-card').forEach(card => {
+    card.addEventListener('click', () => openNodeDrawer(unitId, nodes.find(n => n.id === card.dataset.id), nodes));
+  });
+  document.querySelectorAll('.add-node-btn').forEach(btn => {
+    btn.addEventListener('click', () => openNodeDrawer(unitId, null, nodes, btn.dataset.path));
+  });
+}
+
+function openNodeDrawer(unitId, node, allNodes, forcedPath){
+  const isNew = !node;
+  const n = node || {
+    path_label: forcedPath || 'A', sort_order: allNodes.filter(x=>x.path_label===(forcedPath||'A')).length,
+    node_type:'unlock', name:'', description:'', unlocks_skill_id:null, boosts_skill_id:null, boosts_stat:null,
+    effect_value_per_rank:0, sp_cost_per_rank:1, rank_cap_star1:3, rank_cap_star2:5, rank_cap_star4:8,
+    required_star_level:1, prerequisite_node_id:null
+  };
+  const samePathNodes = allNodes.filter(x => x.path_label === n.path_label && x.id !== n.id);
+
+  document.getElementById('drawer').innerHTML = `
+    <button class="close-x" id="drawer-close">✕</button>
+    <h3>${isNew ? 'Neuer Skillbaum-Knoten' : n.name}</h3>
+
+    <div class="row2">
+      <div class="field">
+        <label>Pfad</label>
+        <select id="n-path">
+          <option value="A" ${n.path_label==='A'?'selected':''}>Pfad A</option>
+          <option value="B" ${n.path_label==='B'?'selected':''}>Pfad B</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Position im Pfad</label>
+        <input type="number" id="n-sort" value="${n.sort_order}" />
+      </div>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="n-name" value="${n.name}" /></div>
+    <div class="field"><label>Beschreibung</label><textarea id="n-desc">${n.description||''}</textarea></div>
+
+    <div class="field">
+      <label>Knoten-Typ</label>
+      <select id="n-type">
+        <option value="unlock" ${n.node_type==='unlock'?'selected':''}>Freischalten (neuer Skill, 1 SP)</option>
+        <option value="upgrade" ${n.node_type==='upgrade'?'selected':''}>Verstärken (mehrere Ränge)</option>
+      </select>
+    </div>
+
+    <div id="unlock-fields" class="field">
+      <label>Schaltet Skill frei</label>
+      <select id="n-unlock-skill">${optionList(SKILLS, n.unlocks_skill_id)}</select>
+    </div>
+
+    <div id="upgrade-fields">
+      <div class="field">
+        <label>Verstärkt was?</label>
+        <select id="n-boost-target">
+          <option value="stat" ${n.boosts_stat?'selected':''}>Rohen Stat</option>
+          <option value="skill" ${n.boosts_skill_id?'selected':''}>Bestehenden Skill</option>
+        </select>
+      </div>
+      <div class="field" id="boost-stat-field">
+        <label>Stat</label>
+        <select id="n-stat">
+          ${['hp','atk','def','spd','mp','crit_chance','mp_cost'].map(s=>`<option value="${s}" ${n.boosts_stat===s?'selected':''}>${s.toUpperCase()}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" id="boost-skill-field">
+        <label>Skill</label>
+        <select id="n-boost-skill">${optionList(SKILLS, n.boosts_skill_id)}</select>
+      </div>
+      <div class="field"><label>Effekt pro Rang (z.B. 0.05 = +5%)</label><input type="number" step="0.01" id="n-effect" value="${n.effect_value_per_rank}" /></div>
+      <div class="row3">
+        <div class="field"><label>SP/Rang</label><input type="number" id="n-sp-cost" value="${n.sp_cost_per_rank}" /></div>
+        <div class="field"><label>Ränge ab 1★</label><input type="number" id="n-rank1" value="${n.rank_cap_star1}" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Ränge ab 2★</label><input type="number" id="n-rank2" value="${n.rank_cap_star2}" /></div>
+        <div class="field"><label>Ränge ab 4★</label><input type="number" id="n-rank4" value="${n.rank_cap_star4}" /></div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Verfügbar ab Stern</label>
+        <select id="n-req-star">
+          ${[1,2,3,4,5].map(v=>`<option value="${v}" ${n.required_star_level===v?'selected':''}>${v}★</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Voraussetzung (Knoten)</label>
+        <select id="n-prereq">
+          <option value="">— keine —</option>
+          ${samePathNodes.map(p => `<option value="${p.id}" ${n.prerequisite_node_id===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="drawer-actions">
+      <button class="primary" id="save-node">${isNew?'Erstellen':'Speichern'}</button>
+      ${!isNew ? '<button class="danger" id="delete-node">Löschen</button>' : ''}
+      <button class="ghost" id="cancel-node">Abbrechen</button>
+    </div>
+  `;
+
+  const toggleTypeFields = () => {
+    const isUnlock = document.getElementById('n-type').value === 'unlock';
+    document.getElementById('unlock-fields').style.display = isUnlock ? 'block' : 'none';
+    document.getElementById('upgrade-fields').style.display = isUnlock ? 'none' : 'block';
+  };
+  const toggleBoostTarget = () => {
+    const isStat = document.getElementById('n-boost-target').value === 'stat';
+    document.getElementById('boost-stat-field').style.display = isStat ? 'block' : 'none';
+    document.getElementById('boost-skill-field').style.display = isStat ? 'none' : 'block';
+  };
+  document.getElementById('n-type').addEventListener('change', toggleTypeFields);
+  document.getElementById('n-boost-target').addEventListener('change', toggleBoostTarget);
+  toggleTypeFields(); toggleBoostTarget();
+
+  openOverlay();
+  document.getElementById('drawer-close').addEventListener('click', closeOverlay);
+  document.getElementById('cancel-node').addEventListener('click', closeOverlay);
+
+  document.getElementById('save-node').addEventListener('click', async () => {
+    const isUnlock = document.getElementById('n-type').value === 'unlock';
+    const boostIsStat = !isUnlock && document.getElementById('n-boost-target').value === 'stat';
+    const payload = {
+      unit_id: unitId,
+      path_label: document.getElementById('n-path').value,
+      sort_order: +document.getElementById('n-sort').value,
+      node_type: document.getElementById('n-type').value,
+      name: document.getElementById('n-name').value.trim(),
+      description: document.getElementById('n-desc').value,
+      unlocks_skill_id: isUnlock ? document.getElementById('n-unlock-skill').value : null,
+      boosts_skill_id: (!isUnlock && !boostIsStat) ? document.getElementById('n-boost-skill').value : null,
+      boosts_stat: (!isUnlock && boostIsStat) ? document.getElementById('n-stat').value : null,
+      effect_value_per_rank: isUnlock ? 0 : +document.getElementById('n-effect').value,
+      sp_cost_per_rank: isUnlock ? 1 : +document.getElementById('n-sp-cost').value,
+      rank_cap_star1: isUnlock ? 1 : +document.getElementById('n-rank1').value,
+      rank_cap_star2: isUnlock ? 1 : +document.getElementById('n-rank2').value,
+      rank_cap_star4: isUnlock ? 1 : +document.getElementById('n-rank4').value,
+      required_star_level: +document.getElementById('n-req-star').value,
+      prerequisite_node_id: document.getElementById('n-prereq').value || null,
+    };
+    const { error } = isNew
+      ? await supabase.from('skill_tree_nodes').insert(payload)
+      : await supabase.from('skill_tree_nodes').update(payload).eq('id', n.id);
+    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    closeOverlay();
+    await renderSkillTree(unitId);
+  });
+
+  if (!isNew) {
+    document.getElementById('delete-node').addEventListener('click', async () => {
+      if (!confirm(`Knoten "${n.name}" wirklich löschen?`)) return;
+      const { error } = await supabase.from('skill_tree_nodes').delete().eq('id', n.id);
+      if (error) { alert('Fehler beim Löschen: ' + error.message); return; }
+      closeOverlay();
+      await renderSkillTree(unitId);
+    });
+  }
+}
+
+// ============================================================
+// OVERLAY HELPERS
+// ============================================================
+function openOverlay(){ document.getElementById('overlay').classList.add('visible'); }
+function closeOverlay(){ document.getElementById('overlay').classList.remove('visible'); }
+document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay') closeOverlay(); });
+
+// ============================================================
+// START: bestehende Session prüfen
+// ============================================================
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) await enterApp();
+})();
+</script>
+</body>
+</html>
