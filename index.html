@@ -238,6 +238,7 @@
         <input type="text" id="skill-name-filter" placeholder="Nach Name suchen…" style="max-width:220px;" />
         <select id="skill-element-filter"><option value="all">Alle Elemente</option></select>
         <select id="skill-target-filter"><option value="all">Alle Zieltypen</option></select>
+        <select id="skill-effect-filter"><option value="all">Alle Effekte</option></select>
       </div>
       <table>
         <thead><tr>
@@ -345,6 +346,8 @@ async function loadLookups(){
   elFilterSel.innerHTML = `<option value="all">Alle Elemente</option>` + ELEMENTS.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
   const targetFilterSel = document.getElementById('skill-target-filter');
   targetFilterSel.innerHTML = `<option value="all">Alle Zieltypen</option>` + Object.entries(TARGET_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+  const effectFilterSel = document.getElementById('skill-effect-filter');
+  effectFilterSel.innerHTML = `<option value="all">Alle Effekte</option>` + Object.entries(EFFECT_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
 }
 
 function optionList(items, selectedId, labelKey='name'){
@@ -630,6 +633,7 @@ function renderSkillsTable(){
   const nameFilter = document.getElementById('skill-name-filter').value.trim().toLowerCase();
   const elFilter = document.getElementById('skill-element-filter').value;
   const targetFilter = document.getElementById('skill-target-filter').value;
+  const effectFilter = document.getElementById('skill-effect-filter').value;
 
   const tbody = document.getElementById('skills-table-body');
   const filtered = SKILLS.filter(s => {
@@ -637,7 +641,8 @@ function renderSkillsTable(){
     const elIds = (s.skill_elements||[]).map(se => String(se.element_id ?? se.id));
     const elOk = elFilter==='all' || elIds.includes(String(elFilter));
     const targetOk = targetFilter==='all' || s.target_type === targetFilter;
-    return nameOk && elOk && targetOk;
+    const effectOk = effectFilter==='all' || s.effect_type === effectFilter;
+    return nameOk && elOk && targetOk && effectOk;
   });
 
   tbody.innerHTML = filtered.map(s => {
@@ -660,6 +665,7 @@ document.getElementById('new-skill-btn').addEventListener('click', () => openSki
 document.getElementById('skill-name-filter').addEventListener('input', renderSkillsTable);
 document.getElementById('skill-element-filter').addEventListener('change', renderSkillsTable);
 document.getElementById('skill-target-filter').addEventListener('change', renderSkillsTable);
+document.getElementById('skill-effect-filter').addEventListener('change', renderSkillsTable);
 
 function openSkillDrawer(skill){
   const isNew = !skill;
