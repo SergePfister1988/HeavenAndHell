@@ -148,6 +148,10 @@
   .star-req{display:inline-block; margin-left:6px; color:var(--gold); font-size:11px;}
 
   .empty-hint{color:var(--muted); font-size:13.5px; padding:40px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius);}
+  .thumb{width:32px; height:32px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:var(--surface-2); display:block;}
+  .thumb-placeholder{width:32px; height:32px; border-radius:6px; border:1px solid var(--line); background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--muted); font-weight:700;}
+  .sprite-upload-row{display:flex; align-items:center; gap:12px;}
+  .sprite-upload-row input[type=file]{flex:1; font-size:12px;}
   .toolbar{display:flex; gap:10px; margin-bottom:16px;}
   .checkbox-row{display:flex; gap:14px; flex-wrap:wrap; margin-top:4px;}
   .checkbox-row label{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); text-transform:none;}
@@ -200,10 +204,13 @@
           <option value="hero">Nur Helden</option>
           <option value="monster">Nur Monster</option>
         </select>
+        <select id="unit-rarity-filter">
+          <option value="all">Alle Seltenheiten</option>
+        </select>
       </div>
       <table>
         <thead><tr>
-          <th>Name</th><th>Typ</th><th>Klasse</th><th>Element</th><th>Seltenheit</th>
+          <th></th><th>Name</th><th>Typ</th><th>Klasse</th><th>Element</th><th>Seltenheit</th>
           <th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>MP</th>
         </tr></thead>
         <tbody id="units-table-body"></tbody>
@@ -317,6 +324,9 @@ async function loadLookups(){
     supabase.from('skills').select('*').order('name'),
   ]);
   ELEMENTS = el.data || []; CLASSES = cl.data || []; RARITIES = ra.data || []; SKILLS = sk.data || [];
+
+  const rarSel = document.getElementById('unit-rarity-filter');
+  rarSel.innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
 }
 
 function optionList(items, selectedId, labelKey='name'){
@@ -335,10 +345,16 @@ async function refreshUnits(){
 
 function renderUnitsTable(){
   const filter = document.getElementById('unit-filter').value;
+  const rarityFilter = document.getElementById('unit-rarity-filter').value;
   const tbody = document.getElementById('units-table-body');
-  const rows = UNITS.filter(u => filter==='all' || (filter==='hero' ? u.is_playable : !u.is_playable));
+  const rows = UNITS.filter(u => {
+    const typeOk = filter==='all' || (filter==='hero' ? u.is_playable : !u.is_playable);
+    const rarityOk = rarityFilter==='all' || u.rarity_id === rarityFilter;
+    return typeOk && rarityOk;
+  });
   tbody.innerHTML = rows.map(u => `
     <tr data-id="${u.id}">
+      <td>${u.sprite_url ? `<img class="thumb" src="${u.sprite_url}" alt="">` : `<div class="thumb-placeholder">${(u.name||'?')[0]}</div>`}</td>
       <td><strong>${u.name}</strong></td>
       <td><span class="badge ${u.is_playable?'hero':'monster'}">${u.is_playable?'Held':'Monster'}</span></td>
       <td>${u.classes?.name ?? '—'}</td>
@@ -349,14 +365,37 @@ function renderUnitsTable(){
       <td class="mono">${u.base_def}</td>
       <td class="mono">${u.base_spd}</td>
       <td class="mono">${u.base_mp}</td>
-    </tr>`).join('') || `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Einheiten angelegt.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Einheiten angelegt.</td></tr>`;
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
     tr.addEventListener('click', () => openUnitDrawer(UNITS.find(u => u.id === tr.dataset.id)));
   });
 }
 document.getElementById('unit-filter').addEventListener('change', renderUnitsTable);
+document.getElementById('unit-rarity-filter').addEventListener('change', renderUnitsTable);
 document.getElementById('new-unit-btn').addEventListener('click', () => openUnitDrawer(null));
+
+function setSpritePreview(src, unitName){
+  const img = document.getElementById('sprite-preview');
+  const placeholder = document.getElementById('sprite-preview-placeholder');
+  if (img) { img.src = src; return; }
+  if (placeholder) {
+    const newImg = document.createElement('img');
+    newImg.className = 'thumb'; newImg.id = 'sprite-preview';
+    newImg.style.width = '56px'; newImg.style.height = '56px';
+    newImg.src = src;
+    placeholder.replaceWith(newImg);
+  }
+}
+
+async function uploadSprite(file, unitId){
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${unitId}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('unit-sprites').upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('unit-sprites').getPublicUrl(path);
+  return data.publicUrl;
+}
 
 function openUnitDrawer(unit){
   const isNew = !unit;
@@ -374,6 +413,17 @@ function openUnitDrawer(unit){
     <div class="field">
       <label>Name</label>
       <input type="text" id="f-name" value="${u.name}" />
+    </div>
+
+    <div class="field">
+      <label>Bild</label>
+      <div class="sprite-upload-row">
+        ${u.sprite_url
+          ? `<img class="thumb" id="sprite-preview" src="${u.sprite_url}" style="width:56px;height:56px;">`
+          : `<div class="thumb-placeholder" id="sprite-preview-placeholder" style="width:56px;height:56px;font-size:20px;">${(u.name||'?')[0]}</div>`}
+        <input type="file" id="f-sprite-file" accept="image/*" />
+      </div>
+      <input type="text" id="f-sprite-url" value="${u.sprite_url || ''}" placeholder="oder externe Bild-URL einfügen" style="margin-top:8px;" />
     </div>
 
     <div class="field">
@@ -469,6 +519,19 @@ function openUnitDrawer(unit){
   document.getElementById('drawer-close').addEventListener('click', closeOverlay);
   document.getElementById('cancel-unit').addEventListener('click', closeOverlay);
 
+  // Live-Vorschau: Datei ausgewählt
+  document.getElementById('f-sprite-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSpritePreview(ev.target.result, u.name);
+    reader.readAsDataURL(file);
+  });
+  // Live-Vorschau: URL manuell eingefügt
+  document.getElementById('f-sprite-url').addEventListener('input', (e) => {
+    if (e.target.value) setSpritePreview(e.target.value, u.name);
+  });
+
   document.getElementById('save-unit').addEventListener('click', async () => {
     const payload = {
       name: document.getElementById('f-name').value.trim(),
@@ -478,6 +541,7 @@ function openUnitDrawer(unit){
       rarity_id: document.getElementById('f-rarity').value || null,
       style: document.getElementById('f-style').value,
       description: document.getElementById('f-desc').value,
+      sprite_url: document.getElementById('f-sprite-url').value || null,
       base_hp: +document.getElementById('f-hp').value,
       base_atk: +document.getElementById('f-atk').value,
       base_def: +document.getElementById('f-def').value,
@@ -494,10 +558,26 @@ function openUnitDrawer(unit){
       is_mini_boss: document.getElementById('f-minib').checked,
       is_boss: document.getElementById('f-boss').checked,
     };
-    const { error } = isNew
-      ? await supabase.from('units').insert(payload)
-      : await supabase.from('units').update(payload).eq('id', u.id);
-    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    let savedId = u.id;
+    if (isNew){
+      const { data, error } = await supabase.from('units').insert(payload).select().single();
+      if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+      savedId = data.id;
+    } else {
+      const { error } = await supabase.from('units').update(payload).eq('id', u.id);
+      if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    }
+
+    const file = document.getElementById('f-sprite-file').files[0];
+    if (file) {
+      try {
+        const publicUrl = await uploadSprite(file, savedId);
+        await supabase.from('units').update({ sprite_url: publicUrl }).eq('id', savedId);
+      } catch (err) {
+        alert('Einheit gespeichert, aber Bild-Upload fehlgeschlagen: ' + err.message);
+      }
+    }
+
     closeOverlay();
     await refreshUnits();
     populateTreeUnitSelect();
