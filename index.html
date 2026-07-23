@@ -424,6 +424,7 @@ function openUnitDrawer(unit){
     name:'', is_playable:true, class_id:CLASSES[0]?.id, element_id:ELEMENTS[0]?.id, rarity_id:RARITIES[0]?.id,
     style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10, base_mp:20,
     growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5, growth_mp:1,
+    base_xp_reward:10, xp_reward_growth:2,
     path_a_name:'Pfad A', path_b_name:'Pfad B', area_tag:'', is_mini_boss:false, is_boss:false
   };
 
@@ -514,6 +515,10 @@ function openUnitDrawer(unit){
     <div id="monster-only-fields">
       <h3 style="font-size:14px;margin-top:22px;">Monster-Details</h3>
       <div class="field"><label>Gebiet</label><input type="text" id="f-area" value="${u.area_tag || ''}" placeholder="z.B. Wald der Anfänge" /></div>
+      <div class="row2">
+        <div class="field"><label>Basis-XP (Level 1)</label><input type="number" id="f-xp-base" value="${u.base_xp_reward ?? 10}" /></div>
+        <div class="field"><label>XP-Wachstum/Level</label><input type="number" step="0.1" id="f-xp-growth" value="${u.xp_reward_growth ?? 2}" /></div>
+      </div>
       <div class="checkbox-row">
         <label><input type="checkbox" id="f-minib" ${u.is_mini_boss?'checked':''}/> Mini-Boss</label>
         <label><input type="checkbox" id="f-boss" ${u.is_boss?'checked':''}/> Boss</label>
@@ -573,6 +578,8 @@ function openUnitDrawer(unit){
       growth_def: +document.getElementById('f-g-def').value,
       growth_spd: +document.getElementById('f-g-spd').value,
       growth_mp: +document.getElementById('f-g-mp').value,
+      base_xp_reward: +document.getElementById('f-xp-base').value,
+      xp_reward_growth: +document.getElementById('f-xp-growth').value,
       path_a_name: document.getElementById('f-patha').value,
       path_b_name: document.getElementById('f-pathb').value,
       area_tag: document.getElementById('f-area').value,
