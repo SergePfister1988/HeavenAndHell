@@ -349,7 +349,7 @@ function renderUnitsTable(){
   const tbody = document.getElementById('units-table-body');
   const rows = UNITS.filter(u => {
     const typeOk = filter==='all' || (filter==='hero' ? u.is_playable : !u.is_playable);
-    const rarityOk = rarityFilter==='all' || u.rarity_id === rarityFilter;
+    const rarityOk = rarityFilter==='all' || String(u.rarity_id) === String(rarityFilter);
     return typeOk && rarityOk;
   });
   tbody.innerHTML = rows.map(u => `
