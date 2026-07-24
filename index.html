@@ -934,7 +934,10 @@ const ATTR_CATEGORY_SUGGESTIONS = {
     ['def','DEF (Verteidigung)'], ['hp','HP/LP'], ['hp_regen','HP-Regeneration pro Runde'],
     ['boss_damage_reduction','Reduzierter Boss-Schaden'], ['debuff_resist','Debuff-Resistenz'],
   ],
-  SUP: [['heal_power','Heilkraft'], ['mp','MP']],
+  SUP: [
+    ['mp','MP'], ['spd','SPD (Geschwindigkeit)'], ['heal_power','Heilkraft'],
+    ['buff_duration','Buff-Dauer'], ['mp_cost_reduction','MP-Kostenreduktion'],
+  ],
 };
 
 document.getElementById('attrtree-type-select').addEventListener('change', () => renderAttributeTree());
