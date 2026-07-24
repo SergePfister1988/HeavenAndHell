@@ -73,6 +73,24 @@
   .toolbar{display:flex; gap:10px; margin-bottom:16px; align-items:center;}
   #result-banner{text-align:center; padding:30px; background:var(--surface); border:1px solid var(--line); border-radius:8px;}
   #result-banner h2{font-size:26px; margin:0 0 10px;}
+
+  @media (max-width: 700px){
+    main{padding:14px 12px 80px;}
+    header{padding:12px 14px;}
+    header h1{font-size:15px;}
+    .battlefield{grid-template-columns:1fr; gap:16px;}
+    .card-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px;}
+    .unit-pick-card{padding:9px;}
+    .roster-row{padding:9px 10px; gap:8px;}
+    .roster-row .rname{min-width:100%; font-size:13.5px;}
+    .roster-row input[type=number]{width:48px;}
+    #battle-log{height:170px; font-size:12px;}
+    .skill-btn-row button, .target-btn-row button{flex:1 1 auto; min-width:110px;}
+    button{padding:9px 12px; font-size:13px;}
+  }
+  @media (max-width: 420px){
+    .card-grid{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>
@@ -87,6 +105,11 @@
   <section class="view active" id="view-team-setup">
     <h2>1. Team zusammenstellen</h2>
     <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Helden. Level/Stern kannst du frei einstellen, um verschiedene Ausbaustufen zu testen.</p>
+    <div class="toolbar" id="hero-filter-bar">
+      <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
+      <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
+      <select id="hero-filter-rarity"><option value="all">Alle Seltenheiten</option></select>
+    </div>
     <div class="card-grid" id="hero-pick-grid"></div>
     <h3 style="font-size:14px;">Dein Team</h3>
     <div class="roster-list" id="team-roster-list"></div>
@@ -99,6 +122,11 @@
   <section class="view" id="view-enemy-setup">
     <h2>2. Gegner zusammenstellen</h2>
     <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Einheiten (Helden oder Monster) als Gegner-Team.</p>
+    <div class="toolbar" id="enemy-filter-bar">
+      <select id="enemy-filter-element"><option value="all">Alle Elemente</option></select>
+      <select id="enemy-filter-class"><option value="all">Alle Klassen</option></select>
+      <select id="enemy-filter-rarity"><option value="all">Alle Seltenheiten</option></select>
+    </div>
     <div class="card-grid" id="enemy-pick-grid"></div>
     <h3 style="font-size:14px;">Gegner-Team</h3>
     <div class="roster-list" id="enemy-roster-list"></div>
@@ -207,14 +235,40 @@ let enemySetup = [];
 function heroOptions(){ return UNITS.filter(u=>u.is_playable); }
 function enemyOptions(){ return UNITS; } // Helden UND Monster erlaubt als Gegner
 
-function renderPickGrid(containerId, options, targetArray, maxCount, rerenderRoster){
+function populateFilterSelects(prefix, options){
+  const elSel = document.getElementById(`${prefix}-filter-element`);
+  const clSel = document.getElementById(`${prefix}-filter-class`);
+  const raSel = document.getElementById(`${prefix}-filter-rarity`);
+  const usedElemIds = [...new Set(options.map(u=>u.element_id))];
+  const usedClassIds = [...new Set(options.map(u=>u.class_id))];
+  const usedRarityIds = [...new Set(options.map(u=>u.rarity_id).filter(Boolean))];
+  elSel.innerHTML = `<option value="all">Alle Elemente</option>` + usedElemIds.map(id=>`<option value="${id}">${elementOf(id)?.name||'?'}</option>`).join('');
+  clSel.innerHTML = `<option value="all">Alle Klassen</option>` + usedClassIds.map(id=>`<option value="${id}">${classOf(id)?.name||'?'}</option>`).join('');
+  raSel.innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.filter(r=>usedRarityIds.includes(r.id)).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+function applyFilters(prefix, options){
+  const elVal = document.getElementById(`${prefix}-filter-element`).value;
+  const clVal = document.getElementById(`${prefix}-filter-class`).value;
+  const raVal = document.getElementById(`${prefix}-filter-rarity`).value;
+  return options.filter(u => {
+    const elOk = elVal==='all' || String(u.element_id)===String(elVal);
+    const clOk = clVal==='all' || String(u.class_id)===String(clVal);
+    const raOk = raVal==='all' || String(u.rarity_id)===String(raVal);
+    return elOk && clOk && raOk;
+  });
+}
+
+function renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster){
+  const options = applyFilters(filterPrefix, allOptions);
   const grid = document.getElementById(containerId);
   grid.innerHTML = options.map(u => `
     <div class="unit-pick-card ${targetArray.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
       <div class="upname">${u.name}</div>
-      <div class="upmeta">${classOf(u.class_id)?.name||'?'} · ${elementOf(u.element_id)?.name||'?'} · ${u.is_playable?'Held':'Monster'}</div>
+      <div class="upmeta">${classOf(u.class_id)?.name||'?'} · ${elementOf(u.element_id)?.name||'?'} · ${rarityOf(u.rarity_id)?.name || (u.is_playable?'—':'Monster')}</div>
+      <div class="upmeta" style="color:var(--gold);">${u.style || (u.is_playable?'Held':'Monster')}</div>
     </div>
-  `).join('');
+  `).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Einheiten für diese Filter gefunden.</div>`;
   grid.querySelectorAll('.unit-pick-card').forEach(card => {
     card.addEventListener('click', () => {
       const id = card.dataset.id;
@@ -222,12 +276,12 @@ function renderPickGrid(containerId, options, targetArray, maxCount, rerenderRos
       if (idx>=0){ targetArray.splice(idx,1); }
       else {
         if (targetArray.length>=maxCount){ alert(`Maximal ${maxCount} Einheiten.`); return; }
-        const unit = options.find(u=>u.id===id);
+        const unit = allOptions.find(u=>u.id===id);
         const learnable = (LEARNABLE[id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)})).filter(l=>l.skill);
         const startSkillIds = learnable.filter(l=>l.unlock_level<=1).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
         targetArray.push({ unit, level:1, star:1, position:'front', activeSkillIds: new Set(startSkillIds) });
       }
-      renderPickGrid(containerId, options, targetArray, maxCount, rerenderRoster);
+      renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster);
       rerenderRoster();
     });
   });
@@ -280,12 +334,22 @@ function renderRoster(containerId, arr, rerenderGrid){
 
 function initSetupScreens(){
   const heroes = heroOptions();
-  renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, () => renderRoster('team-roster-list', teamSetup, () => renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, arguments.callee)));
-  renderRoster('team-roster-list', teamSetup, () => renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, () => renderRoster('team-roster-list', teamSetup, arguments.callee)));
+  populateFilterSelects('hero', heroes);
+  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 5, rerenderTeamRoster); }
+  function rerenderTeamRoster(){ renderRoster('team-roster-list', teamSetup, rerenderTeamGrid); }
+  ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', rerenderTeamGrid);
+  });
+  rerenderTeamGrid();
+  rerenderTeamRoster();
 
   const enemies = enemyOptions();
-  const rerenderEnemyGrid = () => renderPickGrid('enemy-pick-grid', enemies, enemySetup, 5, rerenderEnemyRoster);
+  populateFilterSelects('enemy', enemies);
+  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 5, rerenderEnemyRoster); }
   function rerenderEnemyRoster(){ renderRoster('enemy-roster-list', enemySetup, rerenderEnemyGrid); }
+  ['enemy-filter-element','enemy-filter-class','enemy-filter-rarity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', rerenderEnemyGrid);
+  });
   rerenderEnemyGrid();
   rerenderEnemyRoster();
 }
