@@ -157,6 +157,18 @@
   .sprite-upload-row input[type=file]{flex:1; font-size:12px;}
 
   .start-skills-box{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:28px;}
+  .attr-row-wrap{margin-bottom:6px;}
+  .attr-row-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:center; margin-bottom:8px;}
+  .attr-row{display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;}
+  .attr-node-card{
+    width:190px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; cursor:pointer;
+  }
+  .attr-node-card:hover{border-color:var(--gold-soft);}
+  .attr-node-card .anname{font-size:14px; font-weight:600; margin-bottom:3px;}
+  .attr-node-card .anmeta{font-size:11.5px; color:var(--muted);}
+  .attr-node-card .anlinks{font-size:10.5px; color:var(--air); margin-top:6px;}
+  .attr-add-row-btn{display:block; margin:6px auto 28px; border-style:dashed; color:var(--muted);}
   .start-skills-box h3{font-size:14px; color:var(--gold); margin:0 0 12px;}
   .skill-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
   .skill-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:100px; padding:5px 8px 5px 14px; font-size:13px;}
@@ -194,7 +206,8 @@
     <div class="brand">Talheim<span>Content-Editor</span></div>
     <button class="nav-btn active" data-view="units">⚔ Einheiten</button>
     <button class="nav-btn" data-view="skills">✦ Skills</button>
-    <button class="nav-btn" data-view="tree">🌳 Skillbaum</button>
+    <button class="nav-btn" data-view="tree">📖 Lernbare Skills</button>
+    <button class="nav-btn" data-view="attrtree">◆ Attribut-Bäume</button>
     <button class="nav-btn" data-view="backup">💾 Backup</button>
     <div class="spacer"></div>
     <button class="nav-btn ghost" id="logout-btn">↩ Abmelden</button>
@@ -252,19 +265,38 @@
       </table>
     </section>
 
-    <!-- ---------- SKILL TREE VIEW ---------- -->
+    <!-- ---------- LEARNABLE SKILLS VIEW ---------- -->
     <section class="view" id="view-tree">
       <div class="view-header">
         <div>
-          <h2>Skillbaum</h2>
-          <p>Individueller Baum pro Held: 2 Pfade, Knoten vom Typ Freischalten oder Verstärken.</p>
+          <h2>Lernbare Skills</h2>
+          <p>Pool an Skills, die ein Held lernen kann, inkl. Freischalt-Level und optionaler Stern-Voraussetzung. Aktive Slots werden später im Spiel aus diesem Pool gewählt.</p>
         </div>
       </div>
       <div class="tree-select">
         <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Held auswählen</label>
         <select id="tree-unit-select"></select>
       </div>
-      <div id="tree-content"><div class="empty-hint">Wähle oben einen Helden aus, um seinen Skillbaum zu bearbeiten.</div></div>
+      <div id="tree-content"><div class="empty-hint">Wähle oben einen Helden aus, um seine lernbaren Skills zu verwalten.</div></div>
+    </section>
+
+    <!-- ---------- ATTRIBUTE TREES VIEW ---------- -->
+    <section class="view" id="view-attrtree">
+      <div class="view-header">
+        <div>
+          <h2>Attribut-Bäume</h2>
+          <p>Universelle Rauten-Bäume (ANG/DEF/SUP), gemeinsam für alle Helden. Pro Ebene ist nur 1 Feld wählbar; die Wahl bestimmt, welche Felder der nächsten Ebene erreichbar sind.</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <select id="attrtree-type-select">
+          <option value="ANG">ANG – Angriff</option>
+          <option value="DEF">DEF – Verteidigung</option>
+          <option value="SUP">SUP – Unterstützung</option>
+        </select>
+        <button class="primary" id="attrtree-new-row-btn">+ Neue Ebene</button>
+      </div>
+      <div id="attrtree-content"></div>
     </section>
 
     <!-- ---------- BACKUP VIEW ---------- -->
@@ -354,6 +386,7 @@ document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    if (btn.dataset.view === 'attrtree') renderAttributeTree();
   });
 });
 
@@ -796,7 +829,7 @@ function openSkillDrawer(skill){
 }
 
 // ============================================================
-// SKILLBAUM (visueller Builder)
+// LERNBARE SKILLS (einfacher Pool pro Held, Freischaltung ab Level/Stern)
 // ============================================================
 function populateTreeUnitSelect(){
   const sel = document.getElementById('tree-unit-select');
@@ -804,422 +837,263 @@ function populateTreeUnitSelect(){
   sel.innerHTML = `<option value="">— auswählen —</option>` + heroes.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
 }
 document.getElementById('tree-unit-select').addEventListener('change', async (e) => {
-  if (!e.target.value) { document.getElementById('tree-content').innerHTML = `<div class="empty-hint">Wähle oben einen Helden aus, um seinen Skillbaum zu bearbeiten.</div>`; return; }
-  await renderSkillTree(e.target.value);
+  if (!e.target.value) { document.getElementById('tree-content').innerHTML = `<div class="empty-hint">Wähle oben einen Helden aus, um seine lernbaren Skills zu verwalten.</div>`; return; }
+  await renderLearnableSkills(e.target.value);
 });
 
-async function renderSkillTree(unitId){
+async function renderLearnableSkills(unitId){
   const unit = UNITS.find(u => u.id === unitId);
-  const [{ data, error }, tplRes] = await Promise.all([
-    supabase.from('skill_tree_nodes').select('*').eq('unit_id', unitId).order('sort_order'),
-    supabase.from('path_templates').select('*').order('name'),
-  ]);
+  const { data, error } = await supabase.from('unit_learnable_skills')
+    .select('unit_id, skill_id, unlock_level, required_star_level, skills(name, mp_cost, power, target_type, effect_type)')
+    .eq('unit_id', unitId).order('unlock_level');
   if (error) { console.error(error); return; }
-  const nodes = data || [];
-  TEMPLATES = tplRes.data || [];
-  const pathA = nodes.filter(n => n.path_label === 'A');
-  const pathB = nodes.filter(n => n.path_label === 'B');
-  const pathC = nodes.filter(n => n.path_label === 'C');
+  const learnable = data || [];
+  const learnedIds = learnable.map(l => l.skill_id);
+  const available = SKILLS.filter(s => !learnedIds.includes(s.id));
 
-  const templateOptions = `<option value="">— Vorlage wählen —</option>` + TEMPLATES.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-  const thirdPathOptions = `<option value="">— dritten Pfad wählen —</option>` + TEMPLATES.filter(t => t.is_third_path_option).map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  document.getElementById('tree-content').innerHTML = `
+    <div class="start-skills-box">
+      <h3>Aktive Skill-Slots</h3>
+      <div class="row2">
+        <div class="field" style="max-width:220px;">
+          <label>Anzahl gleichzeitig aktiver Skills</label>
+          <input type="number" id="active-slots-input" value="${unit.active_skill_slots ?? 4}" min="1" max="8" />
+        </div>
+      </div>
+      <button id="save-active-slots-btn" style="margin-top:6px;">Speichern</button>
+    </div>
 
-  const renderPath = (label, name, list) => `
-    <div class="tree-path">
-      <h3>${name}</h3>
-      <div class="template-row">
-        <select class="tpl-select" data-path="${label}">${templateOptions}</select>
-        <button class="tpl-apply-btn" data-path="${label}" title="Gewählte Vorlage auf diesen Pfad anwenden (ersetzt bestehende Knoten)">Anwenden</button>
+    <div class="start-skills-box">
+      <h3>Lernbarer Skill-Pool von ${unit.name}</h3>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 14px;">Skills, die dieser Held lernen kann. Ab dem angegebenen Level (und optional ab einer Stern-Stufe) wird der Skill verfügbar; im Spiel wählt man daraus bis zu ${unit.active_skill_slots ?? 4} aktive Skills aus.</p>
+      <table>
+        <thead><tr><th>Skill</th><th>Ab Level</th><th>Ab Stern</th><th>MP</th><th>Stärke</th><th></th></tr></thead>
+        <tbody id="learnable-skills-body"></tbody>
+      </table>
+      <div class="add-skill-row" style="margin-top:16px;">
+        <select id="add-learnable-select">${available.map(s => `<option value="${s.id}">${s.name}</option>`).join('') || '<option value="">Keine weiteren Skills verfügbar</option>'}</select>
+        <input type="number" id="add-learnable-level" value="1" min="1" max="50" style="max-width:90px;" placeholder="Level" />
+        <select id="add-learnable-star" style="max-width:90px;">
+          ${[1,2,3,4,5].map(v=>`<option value="${v}">${v}★</option>`).join('')}
+        </select>
+        <button id="add-learnable-btn">+ Hinzufügen</button>
       </div>
-      <div class="node-chain">
-        ${list.map((n,i) => `
-          ${i>0?'<div class="connector"></div>':''}
-          <div class="node-card" data-id="${n.id}">
-            <span class="ntype ${n.node_type}">${n.node_type === 'unlock' ? 'Freischalten' : 'Verstärken'}</span>
-            ${n.required_star_level>1 ? `<span class="star-req">ab ${n.required_star_level}★</span>` : ''}
-            <div class="nname">${n.name}</div>
-            <div class="nmeta">${n.node_type==='unlock'
-              ? '1 SP · schaltet Skill frei'
-              : `${n.sp_cost_per_rank} SP/Rang · Ränge: ${n.rank_cap_star1}→${n.rank_cap_star2}→${n.rank_cap_star4}`}</div>
-          </div>
-        `).join('')}
-      </div>
-      <button class="add-node-btn" data-path="${label}">+ Knoten hinzufügen</button>
-      <button class="tpl-save-btn ghost add-node-btn" data-path="${label}" style="margin-top:6px;">💾 Diesen Pfad als Vorlage speichern</button>
     </div>
   `;
 
-  const thirdPathBlock = unit.path_c_name
-    ? renderPath('C', unit.path_c_name, pathC)
-    : `
-      <div class="tree-path">
-        <h3>Dritter Pfad (ab 3★)</h3>
-        <div class="empty-hint" style="padding:20px;">
-          Noch nicht gewählt. Verfügbar sind nur die als "generischer Drittpfad" markierten Vorlagen.
-        </div>
-        <div class="template-row" style="margin-top:14px;">
-          <select id="third-path-select">${thirdPathOptions}</select>
-          <button id="third-path-choose-btn">Als dritten Pfad wählen</button>
+  const tbody = document.getElementById('learnable-skills-body');
+  tbody.innerHTML = learnable.length ? learnable.map(l => `
+    <tr>
+      <td><strong>${l.skills?.name ?? '—'}</strong></td>
+      <td class="mono">${l.unlock_level}</td>
+      <td class="mono">${l.required_star_level}★</td>
+      <td class="mono">${l.skills?.mp_cost ?? '—'}</td>
+      <td class="mono">${l.skills?.power ?? '—'}</td>
+      <td><button class="danger remove-learnable-btn" data-skill-id="${l.skill_id}" style="padding:4px 10px;font-size:12px;">Entfernen</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Noch keine lernbaren Skills zugewiesen.</td></tr>`;
+
+  tbody.querySelectorAll('.remove-learnable-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabase.from('unit_learnable_skills').delete().eq('unit_id', unitId).eq('skill_id', btn.dataset.skillId);
+      await renderLearnableSkills(unitId);
+    });
+  });
+
+  document.getElementById('add-learnable-btn').addEventListener('click', async () => {
+    const skillId = document.getElementById('add-learnable-select').value;
+    if (!skillId) return;
+    const unlockLevel = +document.getElementById('add-learnable-level').value || 1;
+    const requiredStar = +document.getElementById('add-learnable-star').value || 1;
+    const { error } = await supabase.from('unit_learnable_skills').insert({
+      unit_id: unitId, skill_id: skillId, unlock_level: unlockLevel, required_star_level: requiredStar
+    });
+    if (error) { alert('Fehler: ' + error.message); return; }
+    await renderLearnableSkills(unitId);
+  });
+
+  document.getElementById('save-active-slots-btn').addEventListener('click', async () => {
+    const slots = +document.getElementById('active-slots-input').value || 4;
+    const { error } = await supabase.from('units').update({ active_skill_slots: slots }).eq('id', unitId);
+    if (error) { alert('Fehler: ' + error.message); return; }
+    await refreshUnits();
+    await renderLearnableSkills(unitId);
+  });
+}
+
+
+// ============================================================
+// ATTRIBUT-BÄUME (universell, ANG/DEF/SUP)
+// ============================================================
+const ATTR_CATEGORY_SUGGESTIONS = {
+  ANG: [
+    ['atk','ATK (Angriff)'], ['aoe_damage','Flächenschaden'], ['single_target_damage','Einzelzielschaden'],
+    ['boss_damage','Bonus-Schaden vs. Bosse'], ['crit_damage','Kritischer Schaden'], ['lifesteal','Lebensraub'],
+  ],
+  DEF: [['def','DEF (Verteidigung)'], ['hp','HP']],
+  SUP: [['heal_power','Heilkraft'], ['mp','MP']],
+};
+
+document.getElementById('attrtree-type-select').addEventListener('change', () => renderAttributeTree());
+document.getElementById('attrtree-new-row-btn').addEventListener('click', () => {
+  const treeType = document.getElementById('attrtree-type-select').value;
+  openAttrNodeDrawer(treeType, null, [], _attrCurrentMaxRow + 1);
+});
+let _attrCurrentNodes = [];
+let _attrCurrentEdges = [];
+let _attrCurrentMaxRow = 0;
+
+async function renderAttributeTree(){
+  const treeType = document.getElementById('attrtree-type-select').value;
+  const [{ data: nodes, error: nErr }, { data: edges, error: eErr }] = await Promise.all([
+    supabase.from('attribute_tree_nodes').select('*').eq('tree_type', treeType).order('row_index').order('col_index'),
+    supabase.from('attribute_tree_edges').select('*'),
+  ]);
+  if (nErr) { console.error(nErr); return; }
+  _attrCurrentNodes = nodes || [];
+  const nodeIds = new Set(_attrCurrentNodes.map(n => n.id));
+  _attrCurrentEdges = (edges || []).filter(e => nodeIds.has(e.from_node_id) || nodeIds.has(e.to_node_id));
+  _attrCurrentMaxRow = _attrCurrentNodes.reduce((m,n) => Math.max(m, n.row_index), 0);
+
+  const rows = {};
+  _attrCurrentNodes.forEach(n => { (rows[n.row_index] = rows[n.row_index] || []).push(n); });
+
+  const box = document.getElementById('attrtree-content');
+  if (!_attrCurrentNodes.length) {
+    box.innerHTML = `<div class="empty-hint">Noch keine Felder für ${treeType}. Klicke "+ Neue Ebene", um zu starten.</div>`;
+    return;
+  }
+
+  box.innerHTML = Object.keys(rows).sort((a,b)=>a-b).map(rowIdx => {
+    const nodesInRow = rows[rowIdx];
+    return `
+      <div class="attr-row-wrap">
+        <div class="attr-row-label">Ebene ${rowIdx}</div>
+        <div class="attr-row">
+          ${nodesInRow.map(n => {
+            const outgoing = _attrCurrentEdges.filter(e => e.from_node_id === n.id)
+              .map(e => _attrCurrentNodes.find(x => x.id === e.to_node_id)?.name).filter(Boolean);
+            return `
+              <div class="attr-node-card" data-id="${n.id}">
+                <div class="anname">${n.name}</div>
+                <div class="anmeta">${n.boost_category} · ${n.value_type==='percent' ? '+'+(n.value*100).toFixed(0)+'%' : '+'+n.value} · ${n.sp_cost} SP</div>
+                ${outgoing.length ? `<div class="anlinks">→ ${outgoing.join(', ')}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+          <button class="attr-node-card add-node-btn" data-row="${rowIdx}" style="border-style:dashed;color:var(--muted);display:flex;align-items:center;justify-content:center;">+ Feld hier</button>
         </div>
       </div>
     `;
+  }).join('') + `<button class="attr-add-row-btn" id="attrtree-add-row-inline">+ Neue Ebene (${_attrCurrentMaxRow + 1})</button>`;
 
-  document.getElementById('tree-content').innerHTML = `
-    <div class="start-skills-box" id="start-skills-box">
-      <h3>Start-Skills (ab Level 1, unabhängig vom Baum)</h3>
-      <div class="skill-chips" id="start-skills-chips"><span style="color:var(--muted);font-size:13px;">Lädt…</span></div>
-      <div class="add-skill-row">
-        <select id="add-start-skill-select"></select>
-        <button id="add-start-skill-btn">+ Hinzufügen</button>
-      </div>
-    </div>
-    <div class="tree-cols">
-      ${renderPath('A', unit.path_a_name || 'Pfad A', pathA)}
-      ${renderPath('B', unit.path_b_name || 'Pfad B', pathB)}
-      ${thirdPathBlock}
-    </div>
-    <details style="margin-top:28px;">
-      <summary style="cursor:pointer;color:var(--muted);font-size:13px;">Pfad-Vorlagen verwalten (${TEMPLATES.length})</summary>
-      <div id="template-manage-list" style="margin-top:14px;"></div>
-    </details>
-  `;
-
-  document.querySelectorAll('.node-card').forEach(card => {
-    card.addEventListener('click', () => openNodeDrawer(unitId, nodes.find(n => n.id === card.dataset.id), nodes));
+  box.querySelectorAll('.attr-node-card[data-id]').forEach(card => {
+    card.addEventListener('click', () => openAttrNodeDrawer(treeType, _attrCurrentNodes.find(n => n.id === card.dataset.id), _attrCurrentNodes, null));
   });
-  document.querySelectorAll('.add-node-btn:not(.tpl-save-btn)').forEach(btn => {
-    btn.addEventListener('click', () => openNodeDrawer(unitId, null, nodes, btn.dataset.path));
+  box.querySelectorAll('.add-node-btn').forEach(btn => {
+    btn.addEventListener('click', () => openAttrNodeDrawer(treeType, null, _attrCurrentNodes, +btn.dataset.row));
   });
-  document.querySelectorAll('.tpl-save-btn').forEach(btn => {
-    btn.addEventListener('click', () => openSaveTemplateDrawer(unitId, btn.dataset.path, nodes.filter(n=>n.path_label===btn.dataset.path)));
-  });
-  document.querySelectorAll('.tpl-apply-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const select = document.querySelector(`.tpl-select[data-path="${btn.dataset.path}"]`);
-      if (!select.value) { alert('Bitte zuerst eine Vorlage auswählen.'); return; }
-      applyTemplate(unitId, btn.dataset.path, select.value);
-    });
-  });
-  const thirdBtn = document.getElementById('third-path-choose-btn');
-  if (thirdBtn) {
-    thirdBtn.addEventListener('click', async () => {
-      const select = document.getElementById('third-path-select');
-      if (!select.value) { alert('Bitte zuerst eine Vorlage auswählen.'); return; }
-      const tpl = TEMPLATES.find(t => t.id === select.value);
-      await supabase.from('units').update({ path_c_name: tpl.name }).eq('id', unitId);
-      await applyTemplate(unitId, 'C', select.value);
-      await refreshUnits();
-    });
-  }
-
-  renderTemplateManageList(unitId);
-  await renderStartSkills(unitId);
+  const addRowBtn = document.getElementById('attrtree-add-row-inline');
+  if (addRowBtn) addRowBtn.addEventListener('click', () => openAttrNodeDrawer(treeType, null, _attrCurrentNodes, _attrCurrentMaxRow + 1));
 }
 
-function renderTemplateManageList(unitId){
-  const box = document.getElementById('template-manage-list');
-  if (!box) return;
-  box.innerHTML = TEMPLATES.length ? TEMPLATES.map(t => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;">
-      <strong style="flex:1;">${t.name}</strong>
-      <label style="display:flex;align-items:center;gap:6px;color:var(--muted);text-transform:none;font-size:12.5px;">
-        <input type="checkbox" class="tpl-third-toggle" data-id="${t.id}" ${t.is_third_path_option?'checked':''}/> Generischer Drittpfad
-      </label>
-      <button class="danger tpl-delete-btn" data-id="${t.id}" style="padding:4px 10px;font-size:12px;">Löschen</button>
-    </div>
-  `).join('') : `<span style="color:var(--muted);font-size:13px;">Noch keine Vorlagen gespeichert.</span>`;
-
-  box.querySelectorAll('.tpl-third-toggle').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      await supabase.from('path_templates').update({ is_third_path_option: cb.checked }).eq('id', cb.dataset.id);
-      await renderSkillTree(unitId);
-    });
-  });
-  box.querySelectorAll('.tpl-delete-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Diese Vorlage wirklich löschen? Bereits angewendete Pfade bei Helden bleiben davon unberührt.')) return;
-      await supabase.from('path_templates').delete().eq('id', btn.dataset.id);
-      await renderSkillTree(unitId);
-    });
-  });
-}
-
-function openSaveTemplateDrawer(unitId, pathLabel, pathNodes){
-  if (!pathNodes.length) { alert('Dieser Pfad hat noch keine Knoten zum Speichern.'); return; }
-  document.getElementById('drawer').innerHTML = `
-    <button class="close-x" id="drawer-close">✕</button>
-    <h3>Pfad als Vorlage speichern</h3>
-    <div class="field"><label>Name der Vorlage</label><input type="text" id="tpl-name" placeholder="z.B. Erdpfad - Gewöhnlich" /></div>
-    <div class="field">
-      <label><input type="checkbox" id="tpl-is-third" style="width:auto;margin-right:8px;"/> Als generischen Drittpfad verfügbar machen (ab 3★ bei jedem Helden wählbar)</label>
-    </div>
-    <div class="drawer-actions">
-      <button class="primary" id="tpl-save-confirm">Speichern</button>
-      <button class="ghost" id="tpl-save-cancel">Abbrechen</button>
-    </div>
-  `;
-  openOverlay();
-  document.getElementById('drawer-close').addEventListener('click', closeOverlay);
-  document.getElementById('tpl-save-cancel').addEventListener('click', closeOverlay);
-  document.getElementById('tpl-save-confirm').addEventListener('click', async () => {
-    const name = document.getElementById('tpl-name').value.trim();
-    if (!name) { alert('Bitte einen Namen eingeben.'); return; }
-    const isThird = document.getElementById('tpl-is-third').checked;
-
-    const { data: tpl, error: tplErr } = await supabase.from('path_templates').insert({ name, is_third_path_option: isThird }).select().single();
-    if (tplErr) { alert('Fehler beim Speichern der Vorlage: ' + tplErr.message); return; }
-
-    const templateNodes = pathNodes.map(n => ({
-      template_id: tpl.id, sort_order: n.sort_order, node_type: n.node_type, name: n.name, description: n.description,
-      unlocks_skill_id: n.unlocks_skill_id, boosts_skill_id: n.boosts_skill_id, boosts_stat: n.boosts_stat,
-      effect_value_per_rank: n.effect_value_per_rank, sp_cost_per_rank: n.sp_cost_per_rank,
-      rank_cap_star1: n.rank_cap_star1, rank_cap_star2: n.rank_cap_star2, rank_cap_star4: n.rank_cap_star4,
-      required_star_level: n.required_star_level,
-    }));
-    const { error } = await supabase.from('path_template_nodes').insert(templateNodes);
-    if (error) { alert('Fehler beim Speichern der Knoten: ' + error.message); return; }
-
-    closeOverlay();
-    await renderSkillTree(unitId);
-  });
-}
-
-async function renderStartSkills(unitId){
-  const { data, error } = await supabase.from('unit_skills')
-    .select('skill_id, sort_order, skills(name)')
-    .eq('unit_id', unitId).eq('is_starting_skill', true).order('sort_order');
-  if (error) { console.error(error); return; }
-  const assigned = data || [];
-  const assignedIds = assigned.map(a => a.skill_id);
-
-  const chipsBox = document.getElementById('start-skills-chips');
-  chipsBox.innerHTML = assigned.length
-    ? assigned.map(a => `
-        <div class="skill-chip">
-          ${a.skills?.name ?? '—'}
-          <button data-skill-id="${a.skill_id}" class="remove-start-skill" title="Entfernen">✕</button>
-        </div>`).join('')
-    : `<span style="color:var(--muted);font-size:13px;">Noch keine Start-Skills zugewiesen.</span>`;
-
-  chipsBox.querySelectorAll('.remove-start-skill').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      await supabase.from('unit_skills').delete().eq('unit_id', unitId).eq('skill_id', btn.dataset.skillId);
-      await renderStartSkills(unitId);
-    });
-  });
-
-  const available = SKILLS.filter(s => !assignedIds.includes(s.id));
-  const select = document.getElementById('add-start-skill-select');
-  select.innerHTML = available.length
-    ? available.map(s => `<option value="${s.id}">${s.name}</option>`).join('')
-    : `<option value="">Alle Skills bereits zugewiesen</option>`;
-
-  document.getElementById('add-start-skill-btn').onclick = async () => {
-    const skillId = select.value;
-    if (!skillId) return;
-    await supabase.from('unit_skills').insert({
-      unit_id: unitId, skill_id: skillId, is_starting_skill: true, sort_order: assigned.length
-    });
-    await renderStartSkills(unitId);
-  };
-}
-
-// ============================================================
-// PFAD-VORLAGEN (wiederverwendbare Skillbaum-Pfade)
-// ============================================================
-async function applyTemplate(unitId, pathLabel, templateId){
-  const tpl = TEMPLATES.find(t => t.id === templateId);
-  if (!confirm(`Vorlage "${tpl?.name}" auf diesen Pfad anwenden? Bestehende Knoten in diesem Pfad werden dabei ERSETZT.`)) return;
-
-  const { data: tplNodes, error: tplErr } = await supabase.from('path_template_nodes').select('*').eq('template_id', templateId).order('sort_order');
-  if (tplErr) { alert('Fehler beim Laden der Vorlage: ' + tplErr.message); return; }
-
-  // Bestehende Knoten in diesem Pfad löschen
-  const { error: delErr } = await supabase.from('skill_tree_nodes').delete().eq('unit_id', unitId).eq('path_label', pathLabel);
-  if (delErr) { alert('Fehler beim Ersetzen der Knoten: ' + delErr.message); return; }
-
-  // Neue Knoten aus der Vorlage einfügen
-  const newNodes = (tplNodes || []).map(n => ({
-    unit_id: unitId,
-    path_label: pathLabel,
-    sort_order: n.sort_order,
-    node_type: n.node_type,
-    name: n.name,
-    description: n.description,
-    unlocks_skill_id: n.unlocks_skill_id,
-    boosts_skill_id: n.boosts_skill_id,
-    boosts_stat: n.boosts_stat,
-    effect_value_per_rank: n.effect_value_per_rank,
-    sp_cost_per_rank: n.sp_cost_per_rank,
-    rank_cap_star1: n.rank_cap_star1,
-    rank_cap_star2: n.rank_cap_star2,
-    rank_cap_star4: n.rank_cap_star4,
-    required_star_level: n.required_star_level,
-  }));
-  if (newNodes.length) {
-    const { error: insErr } = await supabase.from('skill_tree_nodes').insert(newNodes);
-    if (insErr) { alert('Fehler beim Einfügen der Vorlagen-Knoten: ' + insErr.message); return; }
-  }
-
-  // Voraussetzungen neu verketten (jeder Knoten braucht Vorgänger im selben Pfad)
-  const { data: freshNodes } = await supabase.from('skill_tree_nodes').select('id, sort_order').eq('unit_id', unitId).eq('path_label', pathLabel).order('sort_order');
-  for (let i = 1; i < (freshNodes||[]).length; i++) {
-    await supabase.from('skill_tree_nodes').update({ prerequisite_node_id: freshNodes[i-1].id }).eq('id', freshNodes[i].id);
-  }
-
-  await renderSkillTree(unitId);
-}
-
-function openNodeDrawer(unitId, node, allNodes, forcedPath){
+function openAttrNodeDrawer(treeType, node, allNodes, forcedRow){
   const isNew = !node;
   const n = node || {
-    path_label: forcedPath || 'A', sort_order: allNodes.filter(x=>x.path_label===(forcedPath||'A')).length,
-    node_type:'unlock', name:'', description:'', unlocks_skill_id:null, boosts_skill_id:null, boosts_stat:null,
-    effect_value_per_rank:0, sp_cost_per_rank:1, rank_cap_star1:3, rank_cap_star2:5, rank_cap_star4:8,
-    required_star_level:1, prerequisite_node_id:null
+    tree_type: treeType, row_index: forcedRow || 1, col_index: 1, name: '', description: '',
+    boost_category: (ATTR_CATEGORY_SUGGESTIONS[treeType]?.[0]?.[0]) || '', value_type: 'percent', value: 0.05, sp_cost: 1,
   };
-  const samePathNodes = allNodes.filter(x => x.path_label === n.path_label && x.id !== n.id);
+  const prevRowNodes = allNodes.filter(x => x.row_index === n.row_index - 1);
+  const incomingFromIds = isNew ? [] : _attrCurrentEdges.filter(e => e.to_node_id === n.id).map(e => e.from_node_id);
+  const suggestions = ATTR_CATEGORY_SUGGESTIONS[treeType] || [];
 
   document.getElementById('drawer').innerHTML = `
     <button class="close-x" id="drawer-close">✕</button>
-    <h3>${isNew ? 'Neuer Skillbaum-Knoten' : n.name}</h3>
+    <h3>${isNew ? `Neues Feld (${treeType})` : n.name}</h3>
+
+    <div class="row2">
+      <div class="field"><label>Ebene</label><input type="number" id="an-row" value="${n.row_index}" min="1" /></div>
+      <div class="field"><label>Position in Ebene</label><input type="number" id="an-col" value="${n.col_index}" min="1" /></div>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="an-name" value="${n.name}" /></div>
+    <div class="field"><label>Beschreibung</label><textarea id="an-desc">${n.description||''}</textarea></div>
 
     <div class="row2">
       <div class="field">
-        <label>Pfad</label>
-        <select id="n-path">
-          <option value="A" ${n.path_label==='A'?'selected':''}>Pfad A</option>
-          <option value="B" ${n.path_label==='B'?'selected':''}>Pfad B</option>
-        </select>
+        <label>Kategorie</label>
+        <input type="text" id="an-category" list="an-category-list" value="${n.boost_category}" />
+        <datalist id="an-category-list">${suggestions.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</datalist>
       </div>
       <div class="field">
-        <label>Position im Pfad</label>
-        <input type="number" id="n-sort" value="${n.sort_order}" />
-      </div>
-    </div>
-
-    <div class="field"><label>Name</label><input type="text" id="n-name" value="${n.name}" /></div>
-    <div class="field"><label>Beschreibung</label><textarea id="n-desc">${n.description||''}</textarea></div>
-
-    <div class="field">
-      <label>Knoten-Typ</label>
-      <select id="n-type">
-        <option value="unlock" ${n.node_type==='unlock'?'selected':''}>Freischalten (neuer Skill, 1 SP)</option>
-        <option value="upgrade" ${n.node_type==='upgrade'?'selected':''}>Verstärken (mehrere Ränge)</option>
-      </select>
-    </div>
-
-    <div id="unlock-fields" class="field">
-      <label>Schaltet Skill frei</label>
-      <select id="n-unlock-skill">${optionList(SKILLS, n.unlocks_skill_id)}</select>
-    </div>
-
-    <div id="upgrade-fields">
-      <div class="field">
-        <label>Verstärkt was?</label>
-        <select id="n-boost-target">
-          <option value="stat" ${n.boosts_stat?'selected':''}>Rohen Stat</option>
-          <option value="skill" ${n.boosts_skill_id?'selected':''}>Bestehenden Skill</option>
+        <label>Wertart</label>
+        <select id="an-value-type">
+          <option value="percent" ${n.value_type==='percent'?'selected':''}>Prozent</option>
+          <option value="flat" ${n.value_type==='flat'?'selected':''}>Flach</option>
         </select>
       </div>
-      <div class="field" id="boost-stat-field">
-        <label>Stat</label>
-        <select id="n-stat">
-          ${['hp','atk','def','spd','mp','crit_chance','mp_cost'].map(s=>`<option value="${s}" ${n.boosts_stat===s?'selected':''}>${s.toUpperCase()}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field" id="boost-skill-field">
-        <label>Skill</label>
-        <select id="n-boost-skill">${optionList(SKILLS, n.boosts_skill_id)}</select>
-      </div>
-      <div class="field"><label>Effekt pro Rang (z.B. 0.05 = +5%)</label><input type="number" step="0.01" id="n-effect" value="${n.effect_value_per_rank}" /></div>
-      <div class="row3">
-        <div class="field"><label>SP/Rang</label><input type="number" id="n-sp-cost" value="${n.sp_cost_per_rank}" /></div>
-        <div class="field"><label>Ränge ab 1★</label><input type="number" id="n-rank1" value="${n.rank_cap_star1}" /></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Ränge ab 2★</label><input type="number" id="n-rank2" value="${n.rank_cap_star2}" /></div>
-        <div class="field"><label>Ränge ab 4★</label><input type="number" id="n-rank4" value="${n.rank_cap_star4}" /></div>
-      </div>
     </div>
-
     <div class="row2">
-      <div class="field">
-        <label>Verfügbar ab Stern</label>
-        <select id="n-req-star">
-          ${[1,2,3,4,5].map(v=>`<option value="${v}" ${n.required_star_level===v?'selected':''}>${v}★</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Voraussetzung (Knoten)</label>
-        <select id="n-prereq">
-          <option value="">— keine —</option>
-          ${samePathNodes.map(p => `<option value="${p.id}" ${n.prerequisite_node_id===p.id?'selected':''}>${p.name}</option>`).join('')}
-        </select>
-      </div>
+      <div class="field"><label>Wert (0.05 = 5%)</label><input type="number" step="0.01" id="an-value" value="${n.value}" /></div>
+      <div class="field"><label>Kosten (Punkte)</label><input type="number" id="an-cost" value="${n.sp_cost}" /></div>
     </div>
+
+    ${prevRowNodes.length ? `
+      <div class="field">
+        <label>Erreichbar von (Ebene ${n.row_index - 1})</label>
+        <div class="checkbox-row">
+          ${prevRowNodes.map(p => `<label><input type="checkbox" class="an-incoming" value="${p.id}" ${incomingFromIds.includes(p.id)?'checked':''}/> ${p.name}</label>`).join('')}
+        </div>
+      </div>
+    ` : `<p style="color:var(--muted);font-size:12.5px;">Erste Ebene – keine Vorgänger-Verbindung nötig.</p>`}
 
     <div class="drawer-actions">
-      <button class="primary" id="save-node">${isNew?'Erstellen':'Speichern'}</button>
-      ${!isNew ? '<button class="danger" id="delete-node">Löschen</button>' : ''}
-      <button class="ghost" id="cancel-node">Abbrechen</button>
+      <button class="primary" id="save-attr-node">${isNew?'Erstellen':'Speichern'}</button>
+      ${!isNew ? '<button class="danger" id="delete-attr-node">Löschen</button>' : ''}
+      <button class="ghost" id="cancel-attr-node">Abbrechen</button>
     </div>
   `;
 
-  const toggleTypeFields = () => {
-    const isUnlock = document.getElementById('n-type').value === 'unlock';
-    document.getElementById('unlock-fields').style.display = isUnlock ? 'block' : 'none';
-    document.getElementById('upgrade-fields').style.display = isUnlock ? 'none' : 'block';
-  };
-  const toggleBoostTarget = () => {
-    const isStat = document.getElementById('n-boost-target').value === 'stat';
-    document.getElementById('boost-stat-field').style.display = isStat ? 'block' : 'none';
-    document.getElementById('boost-skill-field').style.display = isStat ? 'none' : 'block';
-  };
-  document.getElementById('n-type').addEventListener('change', toggleTypeFields);
-  document.getElementById('n-boost-target').addEventListener('change', toggleBoostTarget);
-  toggleTypeFields(); toggleBoostTarget();
-
   openOverlay();
   document.getElementById('drawer-close').addEventListener('click', closeOverlay);
-  document.getElementById('cancel-node').addEventListener('click', closeOverlay);
+  document.getElementById('cancel-attr-node').addEventListener('click', closeOverlay);
 
-  document.getElementById('save-node').addEventListener('click', async () => {
-    const isUnlock = document.getElementById('n-type').value === 'unlock';
-    const boostIsStat = !isUnlock && document.getElementById('n-boost-target').value === 'stat';
+  document.getElementById('save-attr-node').addEventListener('click', async () => {
     const payload = {
-      unit_id: unitId,
-      path_label: document.getElementById('n-path').value,
-      sort_order: +document.getElementById('n-sort').value,
-      node_type: document.getElementById('n-type').value,
-      name: document.getElementById('n-name').value.trim(),
-      description: document.getElementById('n-desc').value,
-      unlocks_skill_id: isUnlock ? document.getElementById('n-unlock-skill').value : null,
-      boosts_skill_id: (!isUnlock && !boostIsStat) ? document.getElementById('n-boost-skill').value : null,
-      boosts_stat: (!isUnlock && boostIsStat) ? document.getElementById('n-stat').value : null,
-      effect_value_per_rank: isUnlock ? 0 : +document.getElementById('n-effect').value,
-      sp_cost_per_rank: isUnlock ? 1 : +document.getElementById('n-sp-cost').value,
-      rank_cap_star1: isUnlock ? 1 : +document.getElementById('n-rank1').value,
-      rank_cap_star2: isUnlock ? 1 : +document.getElementById('n-rank2').value,
-      rank_cap_star4: isUnlock ? 1 : +document.getElementById('n-rank4').value,
-      required_star_level: +document.getElementById('n-req-star').value,
-      prerequisite_node_id: document.getElementById('n-prereq').value || null,
+      tree_type: treeType,
+      row_index: +document.getElementById('an-row').value,
+      col_index: +document.getElementById('an-col').value,
+      name: document.getElementById('an-name').value.trim(),
+      description: document.getElementById('an-desc').value,
+      boost_category: document.getElementById('an-category').value.trim(),
+      value_type: document.getElementById('an-value-type').value,
+      value: +document.getElementById('an-value').value,
+      sp_cost: +document.getElementById('an-cost').value,
     };
-    const { error } = isNew
-      ? await supabase.from('skill_tree_nodes').insert(payload)
-      : await supabase.from('skill_tree_nodes').update(payload).eq('id', n.id);
-    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    let nodeId = n.id;
+    if (isNew) {
+      const { data, error } = await supabase.from('attribute_tree_nodes').insert(payload).select().single();
+      if (error) { alert('Fehler: ' + error.message); return; }
+      nodeId = data.id;
+    } else {
+      const { error } = await supabase.from('attribute_tree_nodes').update(payload).eq('id', n.id);
+      if (error) { alert('Fehler: ' + error.message); return; }
+      await supabase.from('attribute_tree_edges').delete().eq('to_node_id', n.id);
+    }
+    const chosenIncoming = [...document.querySelectorAll('.an-incoming:checked')].map(cb => ({ from_node_id: cb.value, to_node_id: nodeId }));
+    if (chosenIncoming.length) await supabase.from('attribute_tree_edges').insert(chosenIncoming);
+
     closeOverlay();
-    await renderSkillTree(unitId);
+    await renderAttributeTree();
   });
 
   if (!isNew) {
-    document.getElementById('delete-node').addEventListener('click', async () => {
-      if (!confirm(`Knoten "${n.name}" wirklich löschen?`)) return;
-      const { error } = await supabase.from('skill_tree_nodes').delete().eq('id', n.id);
+    document.getElementById('delete-attr-node').addEventListener('click', async () => {
+      if (!confirm(`Feld "${n.name}" wirklich löschen?`)) return;
+      const { error } = await supabase.from('attribute_tree_nodes').delete().eq('id', n.id);
       if (error) { alert('Fehler beim Löschen: ' + error.message); return; }
       closeOverlay();
-      await renderSkillTree(unitId);
+      await renderAttributeTree();
     });
   }
 }
@@ -1227,7 +1101,7 @@ function openNodeDrawer(unitId, node, allNodes, forcedPath){
 // ============================================================
 // BACKUP: EXPORT / IMPORT
 // ============================================================
-const BACKUP_TABLES = ['skills','skill_elements','units','unit_skills','skill_tree_nodes','path_templates','path_template_nodes'];
+const BACKUP_TABLES = ['skills','skill_elements','units','unit_skills','unit_learnable_skills','skill_tree_nodes','path_templates','path_template_nodes','attribute_tree_nodes','attribute_tree_edges'];
 
 async function exportBackup(){
   const btn = document.getElementById('export-backup-btn');
@@ -1259,7 +1133,7 @@ async function importBackup(){
   try { data = JSON.parse(await file.text()); }
   catch (e) { statusBox.textContent = 'Fehler: Datei ist kein gültiges JSON.'; return; }
 
-  const conflictKeys = { skill_elements: 'skill_id,element_id', unit_skills: 'unit_id,skill_id' };
+  const conflictKeys = { skill_elements: 'skill_id,element_id', unit_skills: 'unit_id,skill_id', unit_learnable_skills: 'unit_id,skill_id', attribute_tree_edges: 'from_node_id,to_node_id' };
   statusBox.textContent = 'Importiere…';
 
   for (const t of BACKUP_TABLES) {
