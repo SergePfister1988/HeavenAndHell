@@ -126,7 +126,7 @@
 
   /* ---------- Skill tree builder ---------- */
   .tree-select{margin-bottom:22px; max-width:360px;}
-  .tree-cols{display:grid; grid-template-columns:1fr 1fr; gap:36px;}
+  .tree-cols{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:28px;}
   .tree-path h3{font-size:15px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:18px;}
   .template-row{display:flex; gap:6px; margin-bottom:16px;}
   .template-row select{flex:1; font-size:12.5px; padding:7px 9px;}
@@ -813,8 +813,10 @@ async function renderSkillTree(unitId){
   TEMPLATES = tplRes.data || [];
   const pathA = nodes.filter(n => n.path_label === 'A');
   const pathB = nodes.filter(n => n.path_label === 'B');
+  const pathC = nodes.filter(n => n.path_label === 'C');
 
   const templateOptions = `<option value="">— Vorlage wählen —</option>` + TEMPLATES.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  const thirdPathOptions = `<option value="">— dritten Pfad wählen —</option>` + TEMPLATES.filter(t => t.is_third_path_option).map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
   const renderPath = (label, name, list) => `
     <div class="tree-path">
@@ -822,7 +824,6 @@ async function renderSkillTree(unitId){
       <div class="template-row">
         <select class="tpl-select" data-path="${label}">${templateOptions}</select>
         <button class="tpl-apply-btn" data-path="${label}" title="Gewählte Vorlage auf diesen Pfad anwenden (ersetzt bestehende Knoten)">Anwenden</button>
-        <button class="tpl-save-btn ghost" data-path="${label}" title="Diesen Pfad als neue Vorlage speichern">💾 Als Vorlage</button>
       </div>
       <div class="node-chain">
         ${list.map((n,i) => `
@@ -838,8 +839,24 @@ async function renderSkillTree(unitId){
         `).join('')}
       </div>
       <button class="add-node-btn" data-path="${label}">+ Knoten hinzufügen</button>
+      <button class="tpl-save-btn ghost add-node-btn" data-path="${label}" style="margin-top:6px;">💾 Diesen Pfad als Vorlage speichern</button>
     </div>
   `;
+
+  const thirdPathBlock = unit.path_c_name
+    ? renderPath('C', unit.path_c_name, pathC)
+    : `
+      <div class="tree-path">
+        <h3>Dritter Pfad (ab 3★)</h3>
+        <div class="empty-hint" style="padding:20px;">
+          Noch nicht gewählt. Verfügbar sind nur die als "generischer Drittpfad" markierten Vorlagen.
+        </div>
+        <div class="template-row" style="margin-top:14px;">
+          <select id="third-path-select">${thirdPathOptions}</select>
+          <button id="third-path-choose-btn">Als dritten Pfad wählen</button>
+        </div>
+      </div>
+    `;
 
   document.getElementById('tree-content').innerHTML = `
     <div class="start-skills-box" id="start-skills-box">
@@ -853,17 +870,22 @@ async function renderSkillTree(unitId){
     <div class="tree-cols">
       ${renderPath('A', unit.path_a_name || 'Pfad A', pathA)}
       ${renderPath('B', unit.path_b_name || 'Pfad B', pathB)}
+      ${thirdPathBlock}
     </div>
+    <details style="margin-top:28px;">
+      <summary style="cursor:pointer;color:var(--muted);font-size:13px;">Pfad-Vorlagen verwalten (${TEMPLATES.length})</summary>
+      <div id="template-manage-list" style="margin-top:14px;"></div>
+    </details>
   `;
 
   document.querySelectorAll('.node-card').forEach(card => {
     card.addEventListener('click', () => openNodeDrawer(unitId, nodes.find(n => n.id === card.dataset.id), nodes));
   });
-  document.querySelectorAll('.add-node-btn').forEach(btn => {
+  document.querySelectorAll('.add-node-btn:not(.tpl-save-btn)').forEach(btn => {
     btn.addEventListener('click', () => openNodeDrawer(unitId, null, nodes, btn.dataset.path));
   });
   document.querySelectorAll('.tpl-save-btn').forEach(btn => {
-    btn.addEventListener('click', () => saveAsTemplate(unitId, btn.dataset.path, nodes.filter(n=>n.path_label===btn.dataset.path)));
+    btn.addEventListener('click', () => openSaveTemplateDrawer(unitId, btn.dataset.path, nodes.filter(n=>n.path_label===btn.dataset.path)));
   });
   document.querySelectorAll('.tpl-apply-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -872,8 +894,89 @@ async function renderSkillTree(unitId){
       applyTemplate(unitId, btn.dataset.path, select.value);
     });
   });
+  const thirdBtn = document.getElementById('third-path-choose-btn');
+  if (thirdBtn) {
+    thirdBtn.addEventListener('click', async () => {
+      const select = document.getElementById('third-path-select');
+      if (!select.value) { alert('Bitte zuerst eine Vorlage auswählen.'); return; }
+      const tpl = TEMPLATES.find(t => t.id === select.value);
+      await supabase.from('units').update({ path_c_name: tpl.name }).eq('id', unitId);
+      await applyTemplate(unitId, 'C', select.value);
+      await refreshUnits();
+    });
+  }
 
+  renderTemplateManageList(unitId);
   await renderStartSkills(unitId);
+}
+
+function renderTemplateManageList(unitId){
+  const box = document.getElementById('template-manage-list');
+  if (!box) return;
+  box.innerHTML = TEMPLATES.length ? TEMPLATES.map(t => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;">
+      <strong style="flex:1;">${t.name}</strong>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--muted);text-transform:none;font-size:12.5px;">
+        <input type="checkbox" class="tpl-third-toggle" data-id="${t.id}" ${t.is_third_path_option?'checked':''}/> Generischer Drittpfad
+      </label>
+      <button class="danger tpl-delete-btn" data-id="${t.id}" style="padding:4px 10px;font-size:12px;">Löschen</button>
+    </div>
+  `).join('') : `<span style="color:var(--muted);font-size:13px;">Noch keine Vorlagen gespeichert.</span>`;
+
+  box.querySelectorAll('.tpl-third-toggle').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      await supabase.from('path_templates').update({ is_third_path_option: cb.checked }).eq('id', cb.dataset.id);
+      await renderSkillTree(unitId);
+    });
+  });
+  box.querySelectorAll('.tpl-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Diese Vorlage wirklich löschen? Bereits angewendete Pfade bei Helden bleiben davon unberührt.')) return;
+      await supabase.from('path_templates').delete().eq('id', btn.dataset.id);
+      await renderSkillTree(unitId);
+    });
+  });
+}
+
+function openSaveTemplateDrawer(unitId, pathLabel, pathNodes){
+  if (!pathNodes.length) { alert('Dieser Pfad hat noch keine Knoten zum Speichern.'); return; }
+  document.getElementById('drawer').innerHTML = `
+    <button class="close-x" id="drawer-close">✕</button>
+    <h3>Pfad als Vorlage speichern</h3>
+    <div class="field"><label>Name der Vorlage</label><input type="text" id="tpl-name" placeholder="z.B. Erdpfad - Gewöhnlich" /></div>
+    <div class="field">
+      <label><input type="checkbox" id="tpl-is-third" style="width:auto;margin-right:8px;"/> Als generischen Drittpfad verfügbar machen (ab 3★ bei jedem Helden wählbar)</label>
+    </div>
+    <div class="drawer-actions">
+      <button class="primary" id="tpl-save-confirm">Speichern</button>
+      <button class="ghost" id="tpl-save-cancel">Abbrechen</button>
+    </div>
+  `;
+  openOverlay();
+  document.getElementById('drawer-close').addEventListener('click', closeOverlay);
+  document.getElementById('tpl-save-cancel').addEventListener('click', closeOverlay);
+  document.getElementById('tpl-save-confirm').addEventListener('click', async () => {
+    const name = document.getElementById('tpl-name').value.trim();
+    if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+    const isThird = document.getElementById('tpl-is-third').checked;
+
+    const { data: tpl, error: tplErr } = await supabase.from('path_templates').insert({ name, is_third_path_option: isThird }).select().single();
+    if (tplErr) { alert('Fehler beim Speichern der Vorlage: ' + tplErr.message); return; }
+
+    const templateNodes = pathNodes.map(n => ({
+      template_id: tpl.id, sort_order: n.sort_order, node_type: n.node_type, name: n.name, description: n.description,
+      unlocks_skill_id: n.unlocks_skill_id, boosts_skill_id: n.boosts_skill_id, boosts_stat: n.boosts_stat,
+      effect_value_per_rank: n.effect_value_per_rank, sp_cost_per_rank: n.sp_cost_per_rank,
+      rank_cap_star1: n.rank_cap_star1, rank_cap_star2: n.rank_cap_star2, rank_cap_star4: n.rank_cap_star4,
+      required_star_level: n.required_star_level,
+    }));
+    const { error } = await supabase.from('path_template_nodes').insert(templateNodes);
+    if (error) { alert('Fehler beim Speichern der Knoten: ' + error.message); return; }
+
+    closeOverlay();
+    await renderSkillTree(unitId);
+  });
+}
 }
 
 async function renderStartSkills(unitId){
@@ -919,37 +1022,6 @@ async function renderStartSkills(unitId){
 // ============================================================
 // PFAD-VORLAGEN (wiederverwendbare Skillbaum-Pfade)
 // ============================================================
-async function saveAsTemplate(unitId, pathLabel, pathNodes){
-  if (!pathNodes.length) { alert('Dieser Pfad hat noch keine Knoten zum Speichern.'); return; }
-  const name = prompt('Name der neuen Vorlage (z.B. "Erdpfad - Gewöhnlich"):');
-  if (!name) return;
-
-  const { data: tpl, error: tplErr } = await supabase.from('path_templates').insert({ name }).select().single();
-  if (tplErr) { alert('Fehler beim Speichern der Vorlage: ' + tplErr.message); return; }
-
-  const templateNodes = pathNodes.map(n => ({
-    template_id: tpl.id,
-    sort_order: n.sort_order,
-    node_type: n.node_type,
-    name: n.name,
-    description: n.description,
-    unlocks_skill_id: n.unlocks_skill_id,
-    boosts_skill_id: n.boosts_skill_id,
-    boosts_stat: n.boosts_stat,
-    effect_value_per_rank: n.effect_value_per_rank,
-    sp_cost_per_rank: n.sp_cost_per_rank,
-    rank_cap_star1: n.rank_cap_star1,
-    rank_cap_star2: n.rank_cap_star2,
-    rank_cap_star4: n.rank_cap_star4,
-    required_star_level: n.required_star_level,
-  }));
-  const { error } = await supabase.from('path_template_nodes').insert(templateNodes);
-  if (error) { alert('Fehler beim Speichern der Knoten: ' + error.message); return; }
-
-  alert(`Vorlage "${name}" gespeichert (${templateNodes.length} Knoten).`);
-  await renderSkillTree(unitId);
-}
-
 async function applyTemplate(unitId, pathLabel, templateId){
   const tpl = TEMPLATES.find(t => t.id === templateId);
   if (!confirm(`Vorlage "${tpl?.name}" auf diesen Pfad anwenden? Bestehende Knoten in diesem Pfad werden dabei ERSETZT.`)) return;
