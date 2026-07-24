@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Himmel und Hölle — Kampf-Prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17150f; --surface:#211e17; --surface-2:#2b271d; --surface-3:#38321f;
+    --line:#4a4230; --text:#ece4d2; --muted:#9c9080; --gold:#c9a24b; --gold-soft:#8f7838;
+    --hp:#a5473a; --hp-bar:#7a3229; --mp:#3d7ea6; --ok:#5f8f5a; --danger:#a5473a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;}
+  h1,h2,h3{font-family:'Cinzel',serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  header{padding:16px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-size:18px; color:var(--gold);}
+  main{max-width:1100px; margin:0 auto; padding:20px 24px 80px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  button{font-family:'Inter',sans-serif; font-weight:600; font-size:13px; cursor:pointer; border-radius:6px; border:1px solid var(--line); background:var(--surface-3); color:var(--text); padding:8px 14px;}
+  button:hover:not(:disabled){border-color:var(--gold-soft);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  button.primary{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
+  button.primary:hover:not(:disabled){background:var(--gold);}
+  select, input{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:6px 8px; font-family:'Inter',sans-serif;}
+
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:20px;}
+  .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px; cursor:pointer;}
+  .unit-pick-card:hover{border-color:var(--gold-soft);}
+  .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
+  .unit-pick-card .upname{font-weight:600;}
+  .upmeta{font-size:11.5px; color:var(--muted); margin-top:2px;}
+
+  .roster-list{display:flex; flex-direction:column; gap:10px; margin-bottom:20px;}
+  .roster-row{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .roster-row .rname{font-weight:600; min-width:140px;}
+  .roster-row label{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;}
+  .roster-row input[type=number]{width:56px;}
+  .skill-toggle{display:flex; gap:6px; flex-wrap:wrap;}
+  .skill-chip{font-size:11px; padding:3px 8px; border-radius:100px; border:1px solid var(--line); background:var(--surface-2); cursor:pointer;}
+  .skill-chip.on{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
+
+  .battlefield{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:20px;}
+  .side h3{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px;}
+  .bunit{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; position:relative;}
+  .bunit.dead{opacity:.35;}
+  .bunit.active-turn{border-color:var(--gold);}
+  .bunit .bname{font-weight:600; font-size:13.5px; display:flex; justify-content:space-between;}
+  .bunit .bpos{font-size:10px; color:var(--muted); text-transform:uppercase;}
+  .barwrap{height:7px; background:var(--surface-3); border-radius:4px; overflow:hidden; margin-top:5px;}
+  .barfill{height:100%;}
+  .barfill.hp{background:var(--hp);}
+  .barfill.mp{background:var(--mp);}
+  .barlabel{font-size:10px; color:var(--muted); margin-top:2px; display:flex; justify-content:space-between;}
+  .buffs{font-size:10px; margin-top:4px; color:var(--gold);}
+
+  #action-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:20px;}
+  #action-panel h3{margin:0 0 10px; font-size:14px;}
+  .skill-btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .target-btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+  #battle-log{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px 16px; height:220px; overflow-y:auto; font-size:12.5px; line-height:1.6;}
+  #battle-log .logline{border-bottom:1px solid var(--surface-3); padding:3px 0;}
+  #battle-log .logline.dmg{color:#e0a294;}
+  #battle-log .logline.heal{color:#a9d8a9;}
+  #battle-log .logline.buff{color:#e8d38a;}
+  #battle-log .logline.sys{color:var(--muted); font-style:italic;}
+
+  .toolbar{display:flex; gap:10px; margin-bottom:16px; align-items:center;}
+  #result-banner{text-align:center; padding:30px; background:var(--surface); border:1px solid var(--line); border-radius:8px;}
+  #result-banner h2{font-size:26px; margin:0 0 10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ Himmel und Hölle — Kampf-Prototyp</h1>
+  <div id="config-status" class="mono" style="font-size:11px;color:var(--muted);"></div>
+</header>
+
+<main>
+  <!-- ================= SETUP: TEAM ================= -->
+  <section class="view active" id="view-team-setup">
+    <h2>1. Team zusammenstellen</h2>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Helden. Level/Stern kannst du frei einstellen, um verschiedene Ausbaustufen zu testen.</p>
+    <div class="card-grid" id="hero-pick-grid"></div>
+    <h3 style="font-size:14px;">Dein Team</h3>
+    <div class="roster-list" id="team-roster-list"></div>
+    <div class="toolbar">
+      <button class="primary" id="to-enemy-setup-btn">Weiter zur Gegner-Auswahl →</button>
+    </div>
+  </section>
+
+  <!-- ================= SETUP: ENEMY ================= -->
+  <section class="view" id="view-enemy-setup">
+    <h2>2. Gegner zusammenstellen</h2>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Einheiten (Helden oder Monster) als Gegner-Team.</p>
+    <div class="card-grid" id="enemy-pick-grid"></div>
+    <h3 style="font-size:14px;">Gegner-Team</h3>
+    <div class="roster-list" id="enemy-roster-list"></div>
+    <div class="toolbar">
+      <button id="back-to-team-btn">← Zurück</button>
+      <button class="primary" id="start-battle-btn">Kampf starten ⚔</button>
+    </div>
+  </section>
+
+  <!-- ================= BATTLE ================= -->
+  <section class="view" id="view-battle">
+    <h2>3. Kampf</h2>
+    <div class="battlefield">
+      <div class="side">
+        <h3>Dein Team</h3>
+        <div id="player-field"></div>
+      </div>
+      <div class="side">
+        <h3>Gegner</h3>
+        <div id="enemy-field"></div>
+      </div>
+    </div>
+    <div id="action-panel" style="display:none;"></div>
+    <div id="battle-log"></div>
+  </section>
+
+  <!-- ================= RESULT ================= -->
+  <section class="view" id="view-result">
+    <div id="result-banner"></div>
+    <div class="toolbar" style="justify-content:center;margin-top:20px;">
+      <button class="primary" id="restart-btn">Neuer Testkampf</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://mcdjyzewmppfrmzhkmrz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_PAGzKtZZvjorx4Bs9S2LcA_UDFu6Smq';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+
+const XP_BASE_FACTOR = 8; // Standard-XP bei Level L = 8 * L^1.5
+
+let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={};
+
+async function loadAll(){
+  const [el, elr, cl, clr, ra, sk, un, ls] = await Promise.all([
+    supabase.from('elements').select('*'),
+    supabase.from('element_relations').select('*'),
+    supabase.from('classes').select('*'),
+    supabase.from('class_relations').select('*'),
+    supabase.from('rarities').select('*'),
+    supabase.from('skills').select('*, skill_elements(element_id)'),
+    supabase.from('units').select('*'),
+    supabase.from('unit_learnable_skills').select('*'),
+  ]);
+  ELEMENTS = el.data||[]; ELEMENT_RELATIONS = elr.data||[]; CLASSES = cl.data||[]; CLASS_RELATIONS = clr.data||[];
+  RARITIES = ra.data||[]; SKILLS = sk.data||[]; UNITS = un.data||[];
+  LEARNABLE = {};
+  (ls.data||[]).forEach(row => { (LEARNABLE[row.unit_id] = LEARNABLE[row.unit_id]||[]).push(row); });
+  document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills geladen`;
+}
+
+function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
+function classOf(id){ return CLASSES.find(c=>c.id===id); }
+function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
+function skillOf(id){ return SKILLS.find(s=>s.id===id); }
+
+function classModifier(attackerClassId, defenderClassId){
+  if (attackerClassId===defenderClassId) return 0;
+  if (CLASS_RELATIONS.some(r=>r.attacker_class_id===attackerClassId && r.defender_class_id===defenderClassId)) return 0.25;
+  if (CLASS_RELATIONS.some(r=>r.attacker_class_id===defenderClassId && r.defender_class_id===attackerClassId)) return -0.25;
+  return 0;
+}
+function elementModifierSingle(attackerElemId, defenderElemId){
+  if (attackerElemId===defenderElemId) return 0;
+  if (ELEMENT_RELATIONS.some(r=>r.attacker_element_id===attackerElemId && r.defender_element_id===defenderElemId)) return 0.25;
+  if (ELEMENT_RELATIONS.some(r=>r.attacker_element_id===defenderElemId && r.defender_element_id===attackerElemId)) return -0.25;
+  return 0;
+}
+
+// ============================================================
+// STAT-BERECHNUNG (Level + Seltenheit + Stern)
+// ============================================================
+function computeEffective(unit, level, star){
+  const rar = rarityOf(unit.rarity_id) || { stat_multiplier:1, mp_regen_per_turn:2 };
+  const starMult = 1 + 0.20*(star-1);
+  const calc = (base, growth) => Math.round(base + growth*(level-1)) * rar.stat_multiplier * starMult;
+  return {
+    maxHp: Math.round(calc(unit.base_hp, unit.growth_hp)),
+    atk: Math.round(calc(unit.base_atk, unit.growth_atk)),
+    def: Math.round(calc(unit.base_def, unit.growth_def)),
+    spd: Math.round(calc(unit.base_spd, unit.growth_spd)),
+    maxMp: Math.round(calc(unit.base_mp, unit.growth_mp)),
+    mpRegen: rar.mp_regen_per_turn ?? 2,
+  };
+}
+
+// ============================================================
+// SETUP STATE
+// ============================================================
+let teamSetup = [];   // {unit, level, star, position, activeSkillIds:Set}
+let enemySetup = [];
+
+function heroOptions(){ return UNITS.filter(u=>u.is_playable); }
+function enemyOptions(){ return UNITS; } // Helden UND Monster erlaubt als Gegner
+
+function renderPickGrid(containerId, options, targetArray, maxCount, rerenderRoster){
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = options.map(u => `
+    <div class="unit-pick-card ${targetArray.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
+      <div class="upname">${u.name}</div>
+      <div class="upmeta">${classOf(u.class_id)?.name||'?'} · ${elementOf(u.element_id)?.name||'?'} · ${u.is_playable?'Held':'Monster'}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.unit-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.id;
+      const idx = targetArray.findIndex(t=>t.unit.id===id);
+      if (idx>=0){ targetArray.splice(idx,1); }
+      else {
+        if (targetArray.length>=maxCount){ alert(`Maximal ${maxCount} Einheiten.`); return; }
+        const unit = options.find(u=>u.id===id);
+        const learnable = (LEARNABLE[id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)})).filter(l=>l.skill);
+        const startSkillIds = learnable.filter(l=>l.unlock_level<=1).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
+        targetArray.push({ unit, level:1, star:1, position:'front', activeSkillIds: new Set(startSkillIds) });
+      }
+      renderPickGrid(containerId, options, targetArray, maxCount, rerenderRoster);
+      rerenderRoster();
+    });
+  });
+}
+
+function renderRoster(containerId, arr, rerenderGrid){
+  const box = document.getElementById(containerId);
+  box.innerHTML = arr.map((entry,idx) => {
+    const learnable = (LEARNABLE[entry.unit.id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)}))
+      .filter(l => l.skill && l.unlock_level<=entry.level && l.required_star_level<=entry.star);
+    return `
+    <div class="roster-row" data-idx="${idx}">
+      <span class="rname">${entry.unit.name}</span>
+      <label>Level <input type="number" class="r-level" min="1" max="50" value="${entry.level}"/></label>
+      <label>Stern <input type="number" class="r-star" min="1" max="5" value="${entry.star}"/></label>
+      <label>Position
+        <select class="r-pos">
+          <option value="front" ${entry.position==='front'?'selected':''}>Front</option>
+          <option value="back" ${entry.position==='back'?'selected':''}>Back</option>
+        </select>
+      </label>
+      <button class="danger r-remove" style="border-color:var(--danger);color:#e0a294;">Entfernen</button>
+      <div class="skill-toggle" style="width:100%;">
+        ${learnable.map(l => `<span class="skill-chip ${entry.activeSkillIds.has(l.skill_id)?'on':''}" data-skill="${l.skill_id}">${l.skill.name} (${l.skill.mp_cost} MP)</span>`).join('') || '<span style="color:var(--muted);font-size:11px;">Keine Skills bei diesem Level/Stern verfügbar.</span>'}
+      </div>
+    </div>`;
+  }).join('') || `<div style="color:var(--muted);font-size:13px;">Noch keine Einheiten ausgewählt.</div>`;
+
+  box.querySelectorAll('.roster-row').forEach(row => {
+    const idx = +row.dataset.idx;
+    const entry = arr[idx];
+    row.querySelector('.r-level').addEventListener('change', e => { entry.level = Math.max(1, Math.min(50, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid); });
+    row.querySelector('.r-star').addEventListener('change', e => { entry.star = Math.max(1, Math.min(5, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid); });
+    row.querySelector('.r-pos').addEventListener('change', e => { entry.position = e.target.value; });
+    row.querySelector('.r-remove').addEventListener('click', () => { arr.splice(idx,1); renderRoster(containerId, arr, rerenderGrid); rerenderGrid(); });
+    row.querySelectorAll('.skill-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const sid = chip.dataset.skill;
+        const maxSlots = entry.unit.active_skill_slots || 4;
+        if (entry.activeSkillIds.has(sid)) entry.activeSkillIds.delete(sid);
+        else {
+          if (entry.activeSkillIds.size>=maxSlots){ alert(`Maximal ${maxSlots} aktive Skills.`); return; }
+          entry.activeSkillIds.add(sid);
+        }
+        renderRoster(containerId, arr, rerenderGrid);
+      });
+    });
+  });
+}
+
+function initSetupScreens(){
+  const heroes = heroOptions();
+  renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, () => renderRoster('team-roster-list', teamSetup, () => renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, arguments.callee)));
+  renderRoster('team-roster-list', teamSetup, () => renderPickGrid('hero-pick-grid', heroes, teamSetup, 5, () => renderRoster('team-roster-list', teamSetup, arguments.callee)));
+
+  const enemies = enemyOptions();
+  const rerenderEnemyGrid = () => renderPickGrid('enemy-pick-grid', enemies, enemySetup, 5, rerenderEnemyRoster);
+  function rerenderEnemyRoster(){ renderRoster('enemy-roster-list', enemySetup, rerenderEnemyGrid); }
+  rerenderEnemyGrid();
+  rerenderEnemyRoster();
+}
+
+document.getElementById('to-enemy-setup-btn').addEventListener('click', () => {
+  if (!teamSetup.length){ alert('Wähle mindestens einen Helden.'); return; }
+  switchView('view-enemy-setup');
+});
+document.getElementById('back-to-team-btn').addEventListener('click', () => switchView('view-team-setup'));
+
+function switchView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ============================================================
+// BATTLE ENGINE
+// ============================================================
+let battleUnits = [];
+let battleLogEl, playerFieldEl, enemyFieldEl, actionPanelEl;
+let battleOver = false;
+let pendingResolve = null;
+
+function buildBattleUnit(entry, side){
+  const eff = computeEffective(entry.unit, entry.level, entry.star);
+  const skills = [...entry.activeSkillIds].map(sid => {
+    const s = skillOf(sid);
+    return { id:s.id, name:s.name, target_type:s.target_type, effect_type:s.effect_type, power:s.power,
+      duration_turns:s.duration_turns, mp_cost:s.mp_cost, is_melee:s.is_melee, buff_stat:s.buff_stat,
+      elementIds: (s.skill_elements||[]).map(se=>se.element_id) };
+  });
+  return {
+    uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
+    name: entry.unit.name, side, position: entry.position,
+    classId: entry.unit.class_id, elementId: entry.unit.element_id,
+    maxHp: eff.maxHp, hp: eff.maxHp, maxMp: eff.maxMp, mp: eff.maxMp,
+    atk: eff.atk, def: eff.def, spd: eff.spd, mpRegen: eff.mpRegen,
+    skills, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
+    level: entry.level,
+  };
+}
+
+function getStat(u, stat){
+  const base = u[stat];
+  const factor = u.buffs.filter(b=>b.stat===stat).reduce((sum,b)=>sum+b.factor, 0);
+  return Math.max(0, base * (1+factor));
+}
+
+document.getElementById('start-battle-btn').addEventListener('click', () => {
+  if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
+  battleUnits = [
+    ...teamSetup.map(e=>buildBattleUnit(e,'player')),
+    ...enemySetup.map(e=>buildBattleUnit(e,'enemy')),
+  ];
+  battleOver = false;
+  battleLogEl = document.getElementById('battle-log'); battleLogEl.innerHTML='';
+  playerFieldEl = document.getElementById('player-field'); enemyFieldEl = document.getElementById('enemy-field');
+  actionPanelEl = document.getElementById('action-panel');
+  switchView('view-battle');
+  log('sys', 'Der Kampf beginnt!');
+  renderField();
+  battleLoop();
+});
+
+function log(cls, text){
+  const div = document.createElement('div');
+  div.className = 'logline ' + cls;
+  div.textContent = text;
+  battleLogEl.appendChild(div);
+  battleLogEl.scrollTop = battleLogEl.scrollHeight;
+}
+
+function renderField(){
+  const render = (side, el) => {
+    el.innerHTML = battleUnits.filter(u=>u.side===side).map(u => `
+      <div class="bunit ${u.hp<=0?'dead':''} ${u===currentActor?'active-turn':''}">
+        <div class="bname"><span>${u.name}</span><span class="bpos">${u.position}${u.shield>0?' 🛡'+Math.round(u.shield):''}</span></div>
+        <div class="barlabel"><span>HP</span><span class="mono">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</span></div>
+        <div class="barwrap"><div class="barfill hp" style="width:${Math.max(0,u.hp/u.maxHp*100)}%"></div></div>
+        <div class="barlabel"><span>MP</span><span class="mono">${Math.round(u.mp)}/${u.maxMp}</span></div>
+        <div class="barwrap"><div class="barfill mp" style="width:${u.mp/u.maxMp*100}%"></div></div>
+        ${u.buffs.length ? `<div class="buffs">${u.buffs.map(b=>`${b.factor>0?'+':''}${Math.round(b.factor*100)}% ${b.stat.toUpperCase()} (${b.turnsLeft})`).join(', ')}</div>` : ''}
+      </div>
+    `).join('');
+  };
+  render('player', playerFieldEl);
+  render('enemy', enemyFieldEl);
+}
+
+let currentActor = null;
+
+function tickBuffs(u){
+  u.buffs.forEach(b=>b.turnsLeft--);
+  u.buffs = u.buffs.filter(b=>b.turnsLeft>0);
+}
+
+function getNextActor(){
+  while (true){
+    battleUnits.forEach(u=>{ if(u.alive) u.atb += u.spd; });
+    const ready = battleUnits.filter(u=>u.alive && u.atb>=1000);
+    if (ready.length){
+      ready.sort((a,b)=>b.atb-a.atb);
+      ready[0].atb -= 1000;
+      return ready[0];
+    }
+  }
+}
+
+function aliveOf(side){ return battleUnits.filter(u=>u.side===side && u.alive); }
+function deadOf(side){ return battleUnits.filter(u=>u.side===side && !u.alive); }
+
+function validTargets(actor, skill){
+  const allySide = aliveOf(actor.side);
+  const enemySide = aliveOf(actor.side==='player'?'enemy':'player');
+  switch(skill.target_type){
+    case 'self': return [actor];
+    case 'single_ally': return allySide;
+    case 'all_allies': return allySide;
+    case 'single_enemy': {
+      if (skill.is_melee){
+        const front = enemySide.filter(u=>u.position==='front');
+        if (front.length) return front;
+      }
+      return enemySide;
+    }
+    case 'all_enemies': return enemySide;
+  }
+  return [];
+}
+
+function resolveAction(actor, skill, targets){
+  actor.mp -= skill.mp_cost;
+  if (skill.effect_type==='revive'){
+    // Ziel ist tot -> aus dead-Liste
+    const dead = deadOf(actor.side);
+    const target = dead[0];
+    if (!target){ log('sys', `${actor.name} findet niemanden zum Wiederbeleben.`); return; }
+    target.hp = Math.round(target.maxHp * skill.power/100);
+    target.alive = true;
+    log('heal', `${actor.name} belebt ${target.name} mit ${target.hp} HP wieder!`);
+    return;
+  }
+  for (const target of targets){
+    switch(skill.effect_type){
+      case 'damage':
+      case 'dot': {
+        let base = getStat(actor,'atk') * (skill.power/100);
+        let defVal = getStat(target,'def');
+        if (target.position==='front') defVal *= 1.10;
+        let afterDef = base * (100/(100+defVal));
+        let classMod = classModifier(actor.classId, target.classId);
+        let elemMod = 0;
+        for (const eid of skill.elementIds) elemMod += elementModifierSingle(eid, target.elementId);
+        let dmg = Math.max(1, Math.round(afterDef * (1+classMod+elemMod)));
+        if (target.shield>0){
+          const absorbed = Math.min(target.shield, dmg);
+          target.shield -= absorbed; dmg -= absorbed;
+        }
+        target.hp -= dmg;
+        log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${target.hp<=0?' — besiegt!':''}`);
+        if (target.hp<=0){ target.hp=0; target.alive=false; }
+        break;
+      }
+      case 'heal': {
+        const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
+        target.hp = Math.min(target.maxHp, target.hp+amount);
+        log('heal', `${actor.name} heilt ${target.name} um ${amount} (${skill.name}).`);
+        break;
+      }
+      case 'shield': {
+        const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
+        target.shield += amount;
+        log('buff', `${actor.name} gewährt ${target.name} einen Schild von ${amount} (${skill.name}).`);
+        break;
+      }
+      case 'buff':
+      case 'debuff': {
+        const sign = skill.effect_type==='buff' ? 1 : -1;
+        target.buffs.push({ stat: skill.buff_stat, factor: sign*(skill.power/100), turnsLeft: (skill.duration_turns||1)+1 });
+        log('buff', `${actor.name} wirkt ${skill.name} auf ${target.name}: ${sign>0?'+':''}${sign*skill.power}% ${(skill.buff_stat||'').toUpperCase()} für ${skill.duration_turns||1} Runden.`);
+        break;
+      }
+      case 'cleanse': {
+        target.buffs = target.buffs.filter(b=>b.factor>0);
+        log('buff', `${actor.name} reinigt ${target.name} von negativen Effekten (${skill.name}).`);
+        break;
+      }
+    }
+  }
+}
+
+function pickAIAction(actor){
+  const affordable = actor.skills.filter(s=>s.mp_cost<=actor.mp);
+  const pool = affordable.length ? affordable : actor.skills.filter(s=>s.mp_cost===0);
+  if (!pool.length) return null;
+  const skill = pool[Math.floor(Math.random()*pool.length)];
+  const targets = validTargets(actor, skill);
+  if (!targets.length) return null;
+  const chosen = (skill.target_type==='all_allies' || skill.target_type==='all_enemies') ? targets : [targets[Math.floor(Math.random()*targets.length)]];
+  return { skill, targets: chosen };
+}
+
+function checkBattleEnd(){
+  const playerAlive = aliveOf('player').length>0;
+  const enemyAlive = aliveOf('enemy').length>0;
+  if (!playerAlive || !enemyAlive){
+    battleOver = true;
+    showResult(playerAlive && !enemyAlive);
+    return true;
+  }
+  return false;
+}
+
+async function battleLoop(){
+  while (!battleOver){
+    currentActor = getNextActor();
+    if (!currentActor.alive) continue;
+    currentActor.mp = Math.min(currentActor.maxMp, currentActor.mp + currentActor.mpRegen);
+    tickBuffs(currentActor);
+    renderField();
+
+    if (checkBattleEnd()) return;
+
+    if (currentActor.side==='player'){
+      const {skill, targets} = await waitForPlayerAction(currentActor);
+      resolveAction(currentActor, skill, targets);
+    } else {
+      const action = pickAIAction(currentActor);
+      if (action) resolveAction(currentActor, action.skill, action.targets);
+      else log('sys', `${currentActor.name} kann nichts tun.`);
+    }
+    renderField();
+    if (checkBattleEnd()) return;
+    await new Promise(r=>setTimeout(r, 200));
+  }
+}
+
+function waitForPlayerAction(actor){
+  return new Promise(resolve => {
+    const affordable = actor.skills.filter(s=>s.mp_cost<=actor.mp);
+    actionPanelEl.style.display = 'block';
+    actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row" id="skill-choices"></div><div class="target-btn-row" id="target-choices"></div>`;
+    const skillBox = document.getElementById('skill-choices');
+    if (!affordable.length){
+      skillBox.innerHTML = `<span style="color:var(--muted);font-size:12px;">Keine bezahlbare Fähigkeit — Zug wird übersprungen.</span>`;
+      setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,mp_cost:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
+      return;
+    }
+    skillBox.innerHTML = affordable.map((s,i) => `<button class="skill-opt" data-i="${i}">${s.name} (${s.mp_cost} MP)</button>`).join('');
+    skillBox.querySelectorAll('.skill-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const skill = affordable[+btn.dataset.i];
+        const targets = validTargets(actor, skill);
+        const targetBox = document.getElementById('target-choices');
+        if (skill.target_type==='all_allies' || skill.target_type==='all_enemies' || skill.target_type==='self'){
+          actionPanelEl.style.display='none';
+          resolve({ skill, targets: skill.target_type==='self'?[actor]:targets });
+          return;
+        }
+        targetBox.innerHTML = targets.map((t,i)=>`<button class="target-opt" data-i="${i}">${t.name} (${Math.round(t.hp)} HP)</button>`).join('');
+        targetBox.querySelectorAll('.target-opt').forEach(tbtn => {
+          tbtn.addEventListener('click', () => {
+            actionPanelEl.style.display='none';
+            resolve({ skill, targets: [targets[+tbtn.dataset.i]] });
+          });
+        });
+      });
+    });
+  });
+}
+
+function showResult(victory){
+  switchView('view-result');
+  const banner = document.getElementById('result-banner');
+  if (victory){
+    const defeatedEnemies = battleUnits.filter(u=>u.side==='enemy');
+    const totalXp = defeatedEnemies.reduce((sum,u) => {
+      const unitData = UNITS.find(x=>x.name===u.name);
+      const mult = unitData?.xp_multiplier ?? 1;
+      return sum + (XP_BASE_FACTOR * Math.pow(u.level,1.5)) * mult;
+    }, 0);
+    const players = battleUnits.filter(u=>u.side==='player');
+    const perHero = Math.round(totalXp / players.length);
+    banner.innerHTML = `<h2 style="color:var(--ok);">Sieg! 🎉</h2>
+      <p>Gesamt-XP: <span class="mono">${Math.round(totalXp)}</span> — pro Held (${players.length} im Team): <span class="mono">${perHero}</span></p>`;
+  } else {
+    banner.innerHTML = `<h2 style="color:var(--hp);">Niederlage…</h2><p>Das Gegner-Team hat gewonnen.</p>`;
+  }
+}
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  switchView('view-team-setup');
+});
+
+(async () => {
+  await loadAll();
+  initSetupScreens();
+})();
+</script>
+</body>
+</html>
