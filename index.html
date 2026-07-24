@@ -977,7 +977,6 @@ function openSaveTemplateDrawer(unitId, pathLabel, pathNodes){
     await renderSkillTree(unitId);
   });
 }
-}
 
 async function renderStartSkills(unitId){
   const { data, error } = await supabase.from('unit_skills')
