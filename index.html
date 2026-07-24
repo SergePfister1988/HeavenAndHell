@@ -487,8 +487,8 @@ function openUnitDrawer(unit){
     name:'', is_playable:true, class_id:CLASSES[0]?.id, element_id:ELEMENTS[0]?.id, rarity_id:RARITIES[0]?.id,
     style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10, base_mp:20,
     growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5, growth_mp:1,
-    base_xp_reward:10, xp_reward_growth:2,
-    path_a_name:'Pfad A', path_b_name:'Pfad B', area_tag:'', is_mini_boss:false, is_boss:false
+    xp_multiplier:1.0,
+    area_tag:'', is_mini_boss:false, is_boss:false
   };
 
   document.getElementById('drawer').innerHTML = `
@@ -567,20 +567,12 @@ function openUnitDrawer(unit){
       <div class="field"><label>MP/Lvl</label><input type="number" step="0.1" id="f-g-mp" value="${u.growth_mp}" /></div>
     </div>
 
-    <div id="hero-only-fields">
-      <h3 style="font-size:14px;margin-top:22px;">Skillbaum-Pfade</h3>
-      <div class="row2">
-        <div class="field"><label>Name Pfad A</label><input type="text" id="f-patha" value="${u.path_a_name || 'Pfad A'}" /></div>
-        <div class="field"><label>Name Pfad B</label><input type="text" id="f-pathb" value="${u.path_b_name || 'Pfad B'}" /></div>
-      </div>
-    </div>
-
     <div id="field-encounter-fields">
       <h3 style="font-size:14px;margin-top:22px;">Feld-Encounter</h3>
       <div class="field"><label>Gebiet</label><input type="text" id="f-area" value="${u.area_tag || ''}" placeholder="z.B. Wald der Anfänge" /></div>
-      <div class="row2">
-        <div class="field"><label>Basis-XP (Level 1)</label><input type="number" id="f-xp-base" value="${u.base_xp_reward ?? 10}" /></div>
-        <div class="field"><label>XP-Wachstum/Level</label><input type="number" step="0.1" id="f-xp-growth" value="${u.xp_reward_growth ?? 2}" /></div>
+      <div class="field">
+        <label>XP-Multiplikator (1.0 = normal, Mini-Boss ~3-4, Boss ~6-10)</label>
+        <input type="number" step="0.1" id="f-xp-mult" value="${u.xp_multiplier ?? 1.0}" />
       </div>
     </div>
 
@@ -602,7 +594,6 @@ function openUnitDrawer(unit){
     const isHero = document.getElementById('f-is-playable').value === 'true';
     const rarityName = RARITIES.find(r => String(r.id) === String(document.getElementById('f-rarity').value))?.name;
     const isEpicHero = isHero && rarityName === 'Episch';
-    document.getElementById('hero-only-fields').style.display = isHero ? 'block' : 'none';
     document.getElementById('rarity-field').style.display = isHero ? 'block' : 'none';
     document.getElementById('field-encounter-fields').style.display = isEpicHero ? 'none' : 'block';
     document.getElementById('monster-only-fields').style.display = isHero ? 'none' : 'block';
@@ -648,10 +639,7 @@ function openUnitDrawer(unit){
       growth_def: +document.getElementById('f-g-def').value,
       growth_spd: +document.getElementById('f-g-spd').value,
       growth_mp: +document.getElementById('f-g-mp').value,
-      base_xp_reward: +document.getElementById('f-xp-base').value,
-      xp_reward_growth: +document.getElementById('f-xp-growth').value,
-      path_a_name: document.getElementById('f-patha').value,
-      path_b_name: document.getElementById('f-pathb').value,
+      xp_multiplier: +document.getElementById('f-xp-mult').value,
       area_tag: document.getElementById('f-area').value,
       is_mini_boss: document.getElementById('f-minib').checked,
       is_boss: document.getElementById('f-boss').checked,
