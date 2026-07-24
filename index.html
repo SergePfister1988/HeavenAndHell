@@ -575,13 +575,16 @@ function openUnitDrawer(unit){
       </div>
     </div>
 
-    <div id="monster-only-fields">
-      <h3 style="font-size:14px;margin-top:22px;">Monster-Details</h3>
+    <div id="field-encounter-fields">
+      <h3 style="font-size:14px;margin-top:22px;">Feld-Encounter</h3>
       <div class="field"><label>Gebiet</label><input type="text" id="f-area" value="${u.area_tag || ''}" placeholder="z.B. Wald der Anfänge" /></div>
       <div class="row2">
         <div class="field"><label>Basis-XP (Level 1)</label><input type="number" id="f-xp-base" value="${u.base_xp_reward ?? 10}" /></div>
         <div class="field"><label>XP-Wachstum/Level</label><input type="number" step="0.1" id="f-xp-growth" value="${u.xp_reward_growth ?? 2}" /></div>
       </div>
+    </div>
+
+    <div id="monster-only-fields">
       <div class="checkbox-row">
         <label><input type="checkbox" id="f-minib" ${u.is_mini_boss?'checked':''}/> Mini-Boss</label>
         <label><input type="checkbox" id="f-boss" ${u.is_boss?'checked':''}/> Boss</label>
@@ -597,11 +600,15 @@ function openUnitDrawer(unit){
 
   const togglePlayableFields = () => {
     const isHero = document.getElementById('f-is-playable').value === 'true';
+    const rarityName = RARITIES.find(r => String(r.id) === String(document.getElementById('f-rarity').value))?.name;
+    const isEpicHero = isHero && rarityName === 'Episch';
     document.getElementById('hero-only-fields').style.display = isHero ? 'block' : 'none';
-    document.getElementById('monster-only-fields').style.display = isHero ? 'none' : 'block';
     document.getElementById('rarity-field').style.display = isHero ? 'block' : 'none';
+    document.getElementById('field-encounter-fields').style.display = isEpicHero ? 'none' : 'block';
+    document.getElementById('monster-only-fields').style.display = isHero ? 'none' : 'block';
   };
   document.getElementById('f-is-playable').addEventListener('change', togglePlayableFields);
+  document.getElementById('f-rarity').addEventListener('change', togglePlayableFields);
   togglePlayableFields();
 
   openOverlay();
