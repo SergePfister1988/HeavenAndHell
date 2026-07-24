@@ -246,7 +246,7 @@
       </div>
       <table>
         <thead><tr>
-          <th>Name</th><th>Ziel</th><th>Effekt</th><th>Elemente</th><th>MP</th><th>Stärke</th>
+          <th>Name</th><th>Ziel</th><th>Typ</th><th>Effekt</th><th>Elemente</th><th>MP</th><th>Stärke</th>
         </tr></thead>
         <tbody id="skills-table-body"></tbody>
       </table>
@@ -687,12 +687,13 @@ function renderSkillsTable(){
     return `<tr data-id="${s.id}">
       <td><strong>${s.name}</strong></td>
       <td>${TARGET_LABELS[s.target_type] || s.target_type}</td>
+      <td><span class="badge ${s.is_melee?'monster':'hero'}">${s.is_melee?'Nahkampf':'Fernkampf/Magie'}</span></td>
       <td>${EFFECT_LABELS[s.effect_type] || s.effect_type}</td>
       <td>${elNames}</td>
       <td class="mono">${s.mp_cost}</td>
       <td class="mono">${s.power}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Keine Skills gefunden.</td></tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px;">Keine Skills gefunden.</td></tr>`;
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
     tr.addEventListener('click', () => openSkillDrawer(SKILLS.find(s => s.id === tr.dataset.id)));
@@ -706,7 +707,7 @@ document.getElementById('skill-effect-filter').addEventListener('change', render
 
 function openSkillDrawer(skill){
   const isNew = !skill;
-  const s = skill || { name:'', description:'', mp_cost:10, target_type:'single_enemy', effect_type:'damage', power:100, duration_turns:null, skill_elements:[] };
+  const s = skill || { name:'', description:'', mp_cost:10, target_type:'single_enemy', effect_type:'damage', power:100, duration_turns:null, is_melee:false, skill_elements:[] };
   const activeElIds = (s.skill_elements||[]).map(se => se.element_id ?? se.id);
 
   document.getElementById('drawer').innerHTML = `
@@ -731,6 +732,10 @@ function openSkillDrawer(skill){
       <div class="field"><label>MP-Kosten</label><input type="number" id="s-mp" value="${s.mp_cost}" /></div>
       <div class="field"><label>Stärke</label><input type="number" id="s-power" value="${s.power}" /></div>
       <div class="field"><label>Dauer (Runden)</label><input type="number" id="s-duration" value="${s.duration_turns ?? ''}" /></div>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="s-melee" style="width:auto;margin-right:8px;" ${s.is_melee?'checked':''}/> Nahkampf (trifft nur die Frontreihe, solange dort jemand lebt)</label>
     </div>
 
     <div class="field">
@@ -760,6 +765,7 @@ function openSkillDrawer(skill){
       mp_cost: +document.getElementById('s-mp').value,
       power: +document.getElementById('s-power').value,
       duration_turns: document.getElementById('s-duration').value ? +document.getElementById('s-duration').value : null,
+      is_melee: document.getElementById('s-melee').checked,
     };
     let skillId = s.id;
     if (isNew){
