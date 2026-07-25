@@ -169,6 +169,22 @@
   .attr-node-card .anmeta{font-size:11.5px; color:var(--muted);}
   .attr-node-card .anlinks{font-size:10.5px; color:var(--air); margin-top:6px;}
   .attr-add-row-btn{display:block; margin:6px auto 28px; border-style:dashed; color:var(--muted);}
+
+  /* ---------- Karten-Editor ---------- */
+  .map-toolbar{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;}
+  .map-toolbar .field{margin-bottom:0; max-width:160px;}
+  .layer-tabs{display:flex; gap:6px; margin-bottom:12px;}
+  .layer-tab{padding:7px 14px; font-size:12.5px;}
+  .layer-tab.active{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
+  .terrain-palette{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .palette-swatch{width:34px; height:34px; border-radius:6px; border:2px solid var(--line); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .palette-swatch.active{border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-soft);}
+  .map-grid{display:grid; border:1px solid var(--line); width:max-content; user-select:none; background:#000;}
+  .map-cell{width:20px; height:20px; box-sizing:border-box; border:1px solid rgba(0,0,0,.25); cursor:pointer; position:relative;}
+  .map-cell.spawn::after{content:'★'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; text-shadow:0 0 2px #000;}
+  .map-cell.blocked::before{content:''; position:absolute; inset:0; background:repeating-linear-gradient(45deg, rgba(165,71,58,.6) 0 3px, transparent 3px 6px);}
+  .map-cell.encounter::after{content:''; position:absolute; inset:3px; border:1.5px dashed rgba(224,184,74,.9); border-radius:2px;}
+  .map-scroll{overflow:auto; max-width:100%; border-radius:6px;}
   .start-skills-box h3{font-size:14px; color:var(--gold); margin:0 0 12px;}
   .skill-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
   .skill-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:100px; padding:5px 8px 5px 14px; font-size:13px;}
@@ -208,6 +224,7 @@
     <button class="nav-btn" data-view="skills">✦ Skills</button>
     <button class="nav-btn" data-view="tree">📖 Lernbare Skills</button>
     <button class="nav-btn" data-view="attrtree">◆ Attribut-Bäume</button>
+    <button class="nav-btn" data-view="maps">🗺 Karten-Editor</button>
     <button class="nav-btn" data-view="backup">💾 Backup</button>
     <div class="spacer"></div>
     <button class="nav-btn ghost" id="logout-btn">↩ Abmelden</button>
@@ -299,6 +316,21 @@
       <div id="attrtree-content"></div>
     </section>
 
+    <!-- ---------- MAPS VIEW ---------- -->
+    <section class="view" id="view-maps">
+      <div class="view-header">
+        <div>
+          <h2>Karten-Editor</h2>
+          <p>Terrain, Kollision und Encounter-Zonen pro Gebiet festlegen — jede Karte ein Datensatz.</p>
+        </div>
+        <button class="primary" id="new-map-btn">+ Neue Karte</button>
+      </div>
+      <div class="toolbar">
+        <select id="map-select"><option value="">— Karte wählen —</option></select>
+      </div>
+      <div id="map-editor-content"><div class="empty-hint">Wähle oben eine Karte oder erstelle eine neue.</div></div>
+    </section>
+
     <!-- ---------- BACKUP VIEW ---------- -->
     <section class="view" id="view-backup">
       <div class="view-header">
@@ -387,6 +419,7 @@ document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if (btn.dataset.view === 'attrtree') renderAttributeTree();
+    if (btn.dataset.view === 'maps') loadMapsList();
   });
 });
 
@@ -1116,9 +1149,214 @@ function openAttrNodeDrawer(treeType, node, allNodes, forcedRow){
 }
 
 // ============================================================
+// KARTEN-EDITOR
+// ============================================================
+const TERRAIN_TYPES = [
+  {key:'gras', label:'Gras', icon:'🌿', color:'#2f5233'},
+  {key:'weg', label:'Weg', icon:'', color:'#a68a5b'},
+  {key:'wasser', label:'Wasser', icon:'', color:'#2f6f96'},
+  {key:'fels', label:'Fels', icon:'', color:'#5c5c5c'},
+  {key:'baum', label:'Baum', icon:'🌲', color:'#1f4a24'},
+  {key:'sand', label:'Sand', icon:'', color:'#cdb877'},
+];
+const TERRAIN_COLOR = Object.fromEntries(TERRAIN_TYPES.map(t=>[t.key,t.color]));
+
+let currentMap = null;
+let activeLayer = 'terrain';
+let activeTerrainKey = 'gras';
+let isPainting = false;
+let isSettingSpawn = false;
+let allMaps = [];
+
+function emptyGrid(w, h, val){
+  return Array.from({length:h}, () => Array.from({length:w}, () => val));
+}
+
+async function loadMapsList(){
+  const { data, error } = await supabase.from('maps').select('id, name, area_tag').order('name');
+  if (error) { console.error(error); return; }
+  allMaps = data || [];
+  const sel = document.getElementById('map-select');
+  sel.innerHTML = `<option value="">— Karte wählen —</option>` + allMaps.map(m => `<option value="${m.id}">${m.name} (${m.area_tag})</option>`).join('');
+}
+document.getElementById('map-select').addEventListener('change', async (e) => {
+  if (!e.target.value) { currentMap = null; document.getElementById('map-editor-content').innerHTML = `<div class="empty-hint">Wähle oben eine Karte oder erstelle eine neue.</div>`; return; }
+  const { data, error } = await supabase.from('maps').select('*').eq('id', e.target.value).single();
+  if (error) { alert('Fehler beim Laden: ' + error.message); return; }
+  currentMap = data;
+  activeLayer = 'terrain';
+  renderMapEditor();
+});
+document.getElementById('new-map-btn').addEventListener('click', () => {
+  const w = 20, h = 15;
+  currentMap = {
+    id: null, name: 'Neue Karte', area_tag: '', width: w, height: h, tile_size: 32,
+    spawn_x: 1, spawn_y: 1, encounter_rate: 0.15,
+    terrain_grid: emptyGrid(w, h, 'gras'),
+    collision_grid: emptyGrid(w, h, false),
+    encounter_grid: emptyGrid(w, h, false),
+  };
+  activeLayer = 'terrain';
+  renderMapEditor();
+});
+
+function renderMapEditor(){
+  const box = document.getElementById('map-editor-content');
+  box.innerHTML = `
+    <div class="map-toolbar">
+      <div class="field"><label>Name</label><input type="text" id="map-name" value="${currentMap.name}" /></div>
+      <div class="field"><label>Gebiet (area_tag)</label><input type="text" id="map-area" value="${currentMap.area_tag}" placeholder="z.B. Wald der Anfänge" /></div>
+      <div class="field"><label>Breite</label><input type="number" id="map-w" value="${currentMap.width}" min="5" max="60" /></div>
+      <div class="field"><label>Höhe</label><input type="number" id="map-h" value="${currentMap.height}" min="5" max="60" /></div>
+      <button id="apply-size-btn">Grösse anwenden</button>
+      <div class="field"><label>Encounter-Rate (0-1)</label><input type="number" step="0.01" id="map-rate" value="${currentMap.encounter_rate}" /></div>
+    </div>
+
+    <div class="layer-tabs">
+      <button class="layer-tab ${activeLayer==='terrain'?'active':''}" data-layer="terrain">🌿 Terrain</button>
+      <button class="layer-tab ${activeLayer==='collision'?'active':''}" data-layer="collision">🚧 Kollision</button>
+      <button class="layer-tab ${activeLayer==='encounter'?'active':''}" data-layer="encounter">⚔ Encounter-Zone</button>
+      <button class="layer-tab" id="spawn-mode-btn" style="margin-left:auto;">★ Startpunkt setzen</button>
+    </div>
+
+    <div class="terrain-palette" id="terrain-palette" style="${activeLayer==='terrain'?'':'display:none;'}">
+      ${TERRAIN_TYPES.map(t => `<div class="palette-swatch ${t.key===activeTerrainKey?'active':''}" data-key="${t.key}" style="background:${t.color};" title="${t.label}">${t.icon}</div>`).join('')}
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin:-6px 0 12px;">
+      ${activeLayer==='terrain' ? 'Klicken/Ziehen: Terrain-Typ malen.' : activeLayer==='collision' ? 'Klicken/Ziehen: Blockiert (rot schraffiert) an/aus.' : 'Klicken/Ziehen: Encounter-Feld (gestrichelter Rand) an/aus.'}
+    </p>
+
+    <div class="map-scroll"><div class="map-grid" id="map-grid" style="grid-template-columns:repeat(${currentMap.width}, 20px);"></div></div>
+
+    <div class="drawer-actions" style="position:static;margin-top:20px;background:none;border:none;padding:0;">
+      <button class="primary" id="save-map-btn">${currentMap.id?'Speichern':'Erstellen'}</button>
+      ${currentMap.id ? '<button class="danger" id="delete-map-btn">Löschen</button>' : ''}
+    </div>
+  `;
+
+  document.querySelectorAll('.layer-tab[data-layer]').forEach(btn => {
+    btn.addEventListener('click', () => { activeLayer = btn.dataset.layer; isSettingSpawn = false; renderMapEditor(); });
+  });
+  document.getElementById('spawn-mode-btn').addEventListener('click', () => {
+    isSettingSpawn = !isSettingSpawn;
+    document.getElementById('spawn-mode-btn').classList.toggle('active', isSettingSpawn);
+  });
+  document.querySelectorAll('.palette-swatch').forEach(sw => {
+    sw.addEventListener('click', () => { activeTerrainKey = sw.dataset.key; renderMapEditor(); });
+  });
+  document.getElementById('apply-size-btn').addEventListener('click', applyMapSize);
+  document.getElementById('save-map-btn').addEventListener('click', saveMap);
+  const delBtn = document.getElementById('delete-map-btn');
+  if (delBtn) delBtn.addEventListener('click', deleteMap);
+
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid = document.getElementById('map-grid');
+  const cells = [];
+  for (let y=0; y<currentMap.height; y++){
+    for (let x=0; x<currentMap.width; x++){
+      cells.push(`<div class="map-cell" data-x="${x}" data-y="${y}"></div>`);
+    }
+  }
+  grid.innerHTML = cells.join('');
+  grid.querySelectorAll('.map-cell').forEach(cell => updateCellVisual(+cell.dataset.x, +cell.dataset.y));
+
+  grid.addEventListener('mousedown', (e) => {
+    const cell = e.target.closest('.map-cell'); if (!cell) return;
+    isPainting = true;
+    handleCellAction(+cell.dataset.x, +cell.dataset.y);
+  });
+  grid.addEventListener('mouseover', (e) => {
+    if (!isPainting) return;
+    const cell = e.target.closest('.map-cell'); if (!cell) return;
+    handleCellAction(+cell.dataset.x, +cell.dataset.y);
+  });
+  document.addEventListener('mouseup', () => { isPainting = false; });
+}
+
+function handleCellAction(x, y){
+  if (isSettingSpawn){
+    currentMap.spawn_x = x; currentMap.spawn_y = y;
+    document.querySelectorAll('.map-cell.spawn').forEach(c=>c.classList.remove('spawn'));
+    document.querySelector(`.map-cell[data-x="${x}"][data-y="${y}"]`).classList.add('spawn');
+    isSettingSpawn = false;
+    document.getElementById('spawn-mode-btn').classList.remove('active');
+    return;
+  }
+  if (activeLayer==='terrain') currentMap.terrain_grid[y][x] = activeTerrainKey;
+  else if (activeLayer==='collision') currentMap.collision_grid[y][x] = !currentMap.collision_grid[y][x];
+  else if (activeLayer==='encounter') currentMap.encounter_grid[y][x] = !currentMap.encounter_grid[y][x];
+  updateCellVisual(x, y);
+}
+
+function updateCellVisual(x, y){
+  const cell = document.querySelector(`.map-cell[data-x="${x}"][data-y="${y}"]`);
+  if (!cell) return;
+  cell.style.background = TERRAIN_COLOR[currentMap.terrain_grid[y][x]] || '#2f5233';
+  cell.classList.toggle('blocked', !!currentMap.collision_grid[y][x]);
+  cell.classList.toggle('encounter', !!currentMap.encounter_grid[y][x]);
+  cell.classList.toggle('spawn', currentMap.spawn_x===x && currentMap.spawn_y===y);
+}
+
+function applyMapSize(){
+  const newW = Math.max(5, Math.min(60, +document.getElementById('map-w').value||currentMap.width));
+  const newH = Math.max(5, Math.min(60, +document.getElementById('map-h').value||currentMap.height));
+  const resize = (grid, fill) => {
+    const out = emptyGrid(newW, newH, fill);
+    for (let y=0; y<Math.min(newH, grid.length); y++)
+      for (let x=0; x<Math.min(newW, grid[y].length); x++)
+        out[y][x] = grid[y][x];
+    return out;
+  };
+  currentMap.terrain_grid = resize(currentMap.terrain_grid, 'gras');
+  currentMap.collision_grid = resize(currentMap.collision_grid, false);
+  currentMap.encounter_grid = resize(currentMap.encounter_grid, false);
+  currentMap.width = newW; currentMap.height = newH;
+  currentMap.spawn_x = Math.min(currentMap.spawn_x, newW-1);
+  currentMap.spawn_y = Math.min(currentMap.spawn_y, newH-1);
+  renderMapEditor();
+}
+
+async function saveMap(){
+  currentMap.name = document.getElementById('map-name').value.trim() || 'Unbenannte Karte';
+  currentMap.area_tag = document.getElementById('map-area').value.trim();
+  currentMap.encounter_rate = +document.getElementById('map-rate').value || 0.15;
+
+  const payload = {
+    name: currentMap.name, area_tag: currentMap.area_tag, width: currentMap.width, height: currentMap.height,
+    tile_size: currentMap.tile_size, spawn_x: currentMap.spawn_x, spawn_y: currentMap.spawn_y,
+    encounter_rate: currentMap.encounter_rate, terrain_grid: currentMap.terrain_grid,
+    collision_grid: currentMap.collision_grid, encounter_grid: currentMap.encounter_grid,
+  };
+  if (currentMap.id){
+    const { error } = await supabase.from('maps').update(payload).eq('id', currentMap.id);
+    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+  } else {
+    const { data, error } = await supabase.from('maps').insert(payload).select().single();
+    if (error) { alert('Fehler beim Speichern: ' + error.message); return; }
+    currentMap.id = data.id;
+  }
+  await loadMapsList();
+  document.getElementById('map-select').value = currentMap.id;
+  renderMapEditor();
+  alert('Karte gespeichert!');
+}
+
+async function deleteMap(){
+  if (!confirm(`Karte "${currentMap.name}" wirklich löschen?`)) return;
+  const { error } = await supabase.from('maps').delete().eq('id', currentMap.id);
+  if (error) { alert('Fehler beim Löschen: ' + error.message); return; }
+  currentMap = null;
+  await loadMapsList();
+  document.getElementById('map-editor-content').innerHTML = `<div class="empty-hint">Wähle oben eine Karte oder erstelle eine neue.</div>`;
+}
+
+// ============================================================
 // BACKUP: EXPORT / IMPORT
 // ============================================================
-const BACKUP_TABLES = ['skills','skill_elements','units','unit_skills','unit_learnable_skills','skill_tree_nodes','path_templates','path_template_nodes','attribute_tree_nodes','attribute_tree_edges'];
+const BACKUP_TABLES = ['skills','skill_elements','units','unit_skills','unit_learnable_skills','skill_tree_nodes','path_templates','path_template_nodes','attribute_tree_nodes','attribute_tree_edges','maps'];
 
 async function exportBackup(){
   const btn = document.getElementById('export-backup-btn');
