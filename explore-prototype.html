@@ -323,6 +323,16 @@ function tryMove(x, y){
   }
 }
 
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('view-explore').classList.contains('active')) return;
+  if (!currentMap) return;
+  const moves = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
+  const move = moves[e.key];
+  if (!move) return;
+  e.preventDefault();
+  tryMove(playerX+move[0], playerY+move[1]);
+});
+
 // ---------- Encounter → Übergabe zum Kampf ----------
 async function triggerEncounter(){
   const { data: pool, error } = await supabase.from('units').select('*, rarities(name)').eq('area_tag', currentMap.area_tag);

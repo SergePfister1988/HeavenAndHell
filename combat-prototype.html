@@ -463,7 +463,7 @@ let battleOver = false;
 let autoBattle = false;
 let pendingResolve = null;
 
-function buildBattleUnit(entry, side){
+function buildBattleUnit(entry, side, waveIndex){
   const eff = computeEffective(entry.unit, entry.level, entry.star);
   const skills = [...entry.activeSkillIds].map(sid => {
     const s = skillOf(sid);
@@ -473,7 +473,7 @@ function buildBattleUnit(entry, side){
   });
   return {
     uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
-    name: entry.unit.name, side, position: entry.position,
+    name: entry.unit.name, side, position: entry.position, waveIndex: waveIndex ?? 0,
     classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
     maxHp: eff.maxHp, hp: eff.maxHp, maxMp: eff.maxMp, mp: eff.maxMp,
     atk: eff.atk, def: eff.def, spd: eff.spd, mpRegen: eff.mpRegen,
@@ -509,7 +509,7 @@ document.getElementById('start-battle-btn').addEventListener('click', () => {
   currentWaveIndex = 0;
   battleUnits = [
     ...teamSetup.map(e=>buildBattleUnit(e,'player')),
-    ...waveChunks[0].map(e=>buildBattleUnit(e,'enemy')),
+    ...waveChunks[0].map(e=>buildBattleUnit(e,'enemy',0)),
   ];
   battleOver = false;
   autoBattle = false;
@@ -566,7 +566,7 @@ function unitSlotHtml(u){
 
 function buildField(){
   playerFieldEl.innerHTML = battleUnits.filter(u=>u.side==='player').map(unitSlotHtml).join('');
-  enemyFieldEl.innerHTML = battleUnits.filter(u=>u.side==='enemy').map(unitSlotHtml).join('');
+  enemyFieldEl.innerHTML = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex).map(unitSlotHtml).join('');
 }
 // Rückwärtskompatibler Alias (frühere Aufrufe im Code)
 function renderField(){ buildField(); }
@@ -759,7 +759,7 @@ function advanceWave(){
     u.mp = Math.min(u.maxMp, u.mp+mpAmt);
   });
   log('sys', `Kurze Verschnaufpause: Team regeneriert 15% HP/MP.`);
-  const nextWave = waveChunks[currentWaveIndex].map(e=>buildBattleUnit(e,'enemy'));
+  const nextWave = waveChunks[currentWaveIndex].map(e=>buildBattleUnit(e,'enemy',currentWaveIndex));
   battleUnits.push(...nextWave);
   updateWaveIndicator();
   buildField();
