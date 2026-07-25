@@ -49,7 +49,11 @@
   .bunit{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; position:relative;}
   .bunit.dead{opacity:.35;}
   .bunit.active-turn{border-color:var(--gold);}
-  .bunit .bname{font-weight:600; font-size:13.5px; display:flex; justify-content:space-between;}
+  .bunit .bname{font-weight:600; font-size:13.5px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
+  .level-badge{
+    font-size:9px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 7px;
+    flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,.4) inset;
+  }
   .bunit .bpos{font-size:10px; color:var(--muted); text-transform:uppercase;}
   .barwrap{height:7px; background:var(--surface-3); border-radius:4px; overflow:hidden; margin-top:5px;}
   .barfill{height:100%;}
@@ -73,6 +77,33 @@
   .toolbar{display:flex; gap:10px; margin-bottom:16px; align-items:center;}
   #result-banner{text-align:center; padding:30px; background:var(--surface); border:1px solid var(--line); border-radius:8px;}
   #result-banner h2{font-size:26px; margin:0 0 10px;}
+
+  /* ---------- Runde Skill-Buttons (Kampfbildschirm) ---------- */
+  .round-skill-btn{
+    width:64px; height:64px; border-radius:50%; border:3px solid var(--gold-soft);
+    background: radial-gradient(circle at 35% 30%, var(--surface-3), var(--surface-2));
+    color:var(--text); font-size:22px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; flex-shrink:0;
+  }
+  .round-skill-btn:hover:not(:disabled){border-color:var(--gold);}
+  .round-skill-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .round-skill-btn .mp-badge{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    font-size:9px; background:var(--mp); color:#fff; border-radius:100px; padding:1px 6px; font-weight:700;
+    white-space:nowrap;
+  }
+  .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
+  .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
+  #skill-choices.round-mode{display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
+
+  /* ---------- Querformat-Optimierung ---------- */
+  @media (orientation: landscape) and (max-height: 500px){
+    main{max-width:100%; padding:8px 14px 60px;}
+    header{padding:8px 14px;}
+    .battlefield{grid-template-columns:1fr 1fr; gap:14px;}
+    #battle-log{height:110px;}
+    .bunit{padding:7px 10px; margin-bottom:5px;}
+  }
 
   @media (max-width: 700px){
     main{padding:14px 12px 80px;}
@@ -141,7 +172,10 @@
     <h2>3. Kampf</h2>
     <div class="toolbar" style="justify-content:space-between;">
       <span id="wave-indicator" class="mono" style="font-size:12px;color:var(--gold);">Welle 1 von 1</span>
-      <button id="autobattle-toggle">🤖 Autokampf: Aus</button>
+      <div style="display:flex;gap:8px;">
+        <button id="speed-toggle">x1</button>
+        <button id="autobattle-toggle">🤖 Autokampf: Aus</button>
+      </div>
     </div>
     <div class="battlefield">
       <div class="side">
@@ -174,6 +208,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_PAGzKtZZvjorx4Bs9S2LcA_UDFu6Smq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
 const XP_BASE_FACTOR = 8; // Standard-XP bei Level L = 8 * L^1.5
+const ELEMENT_BADGE_COLORS = { 'Feuer':'#d9705a', 'Wasser':'#5ea3cf', 'Erde':'#b89968', 'Luft':'#eef1ea' };
+let battleSpeed = 1;
 
 let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={};
 
@@ -199,6 +235,20 @@ function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
 function classOf(id){ return CLASSES.find(c=>c.id===id); }
 function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
 function skillOf(id){ return SKILLS.find(s=>s.id===id); }
+
+function skillIcon(skill){
+  switch(skill.effect_type){
+    case 'damage': return skill.is_melee ? '🗡️' : '🏹';
+    case 'dot': return '🔥';
+    case 'heal': return '💚';
+    case 'shield': return '🛡️';
+    case 'buff': return '⬆️';
+    case 'debuff': return '⬇️';
+    case 'revive': return '✨';
+    case 'cleanse': return '✳️';
+    default: return '❓';
+  }
+}
 
 function classModifier(attackerClassId, defenderClassId){
   if (attackerClassId===defenderClassId) return 0;
@@ -416,6 +466,10 @@ document.getElementById('autobattle-toggle').addEventListener('click', () => {
   autoBattle = !autoBattle;
   updateAutoBattleLabel();
 });
+document.getElementById('speed-toggle').addEventListener('click', () => {
+  battleSpeed = battleSpeed>=3 ? 1 : battleSpeed+1;
+  document.getElementById('speed-toggle').textContent = 'x'+battleSpeed;
+});
 
 document.getElementById('start-battle-btn').addEventListener('click', () => {
   if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
@@ -448,16 +502,21 @@ function log(cls, text){
 
 function renderField(){
   const render = (side, el) => {
-    el.innerHTML = battleUnits.filter(u=>u.side===side).map(u => `
+    el.innerHTML = battleUnits.filter(u=>u.side===side).map(u => {
+      const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
+      return `
       <div class="bunit ${u.hp<=0?'dead':''} ${u===currentActor?'active-turn':''}">
-        <div class="bname"><span>${u.name}</span><span class="bpos">${u.position}${u.shield>0?' 🛡'+Math.round(u.shield):''}</span></div>
+        <div class="bname">
+          <span><span class="level-badge" style="background:${badgeColor};">Lvl ${u.level}</span> ${u.name}</span>
+          <span class="bpos">${u.position}${u.shield>0?' 🛡'+Math.round(u.shield):''}</span>
+        </div>
         <div class="barlabel"><span>HP</span><span class="mono">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</span></div>
         <div class="barwrap"><div class="barfill hp" style="width:${Math.max(0,u.hp/u.maxHp*100)}%"></div></div>
         <div class="barlabel"><span>MP</span><span class="mono">${Math.round(u.mp)}/${u.maxMp}</span></div>
         <div class="barwrap"><div class="barfill mp" style="width:${u.mp/u.maxMp*100}%"></div></div>
         ${u.buffs.length ? `<div class="buffs">${u.buffs.map(b=>`${b.factor>0?'+':''}${Math.round(b.factor*100)}% ${b.stat.toUpperCase()} (${b.turnsLeft})`).join(', ')}</div>` : ''}
       </div>
-    `).join('');
+    `; }).join('');
   };
   render('player', playerFieldEl);
   render('enemy', enemyFieldEl);
@@ -631,7 +690,7 @@ async function battleLoop(){
     }
     renderField();
     if (checkBattleEnd()) return;
-    await new Promise(r=>setTimeout(r, 200));
+    await new Promise(r=>setTimeout(r, 200/battleSpeed));
   }
 }
 
@@ -646,7 +705,13 @@ function waitForPlayerAction(actor){
       setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,mp_cost:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
       return;
     }
-    skillBox.innerHTML = affordable.map((s,i) => `<button class="skill-opt" data-i="${i}">${s.name} (${s.mp_cost} MP)</button>`).join('');
+    skillBox.className = 'round-mode';
+    skillBox.innerHTML = affordable.map((s,i) => `
+      <div class="round-skill-wrap">
+        <button class="round-skill-btn skill-opt" data-i="${i}">${skillIcon(s)}<span class="mp-badge">${s.mp_cost} MP</span></button>
+        <div class="round-skill-label">${s.name}</div>
+      </div>
+    `).join('');
     skillBox.querySelectorAll('.skill-opt').forEach(btn => {
       btn.addEventListener('click', () => {
         const skill = affordable[+btn.dataset.i];
