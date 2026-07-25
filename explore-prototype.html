@@ -280,6 +280,7 @@ document.getElementById('start-explore-btn').addEventListener('click', async () 
   document.getElementById('step-count').textContent = steps;
   switchView('view-explore');
   renderMap();
+  centerOnPlayer(false);
 });
 
 function renderMap(){
@@ -304,6 +305,11 @@ function renderMap(){
   });
 }
 
+function centerOnPlayer(smooth){
+  const token = document.getElementById('player-token');
+  if (token) token.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' });
+}
+
 function tryMove(x, y){
   const dx = Math.abs(x-playerX), dy = Math.abs(y-playerY);
   if (!((dx===1 && dy===0) || (dx===0 && dy===1))) return; // nur direkt angrenzende Felder
@@ -315,6 +321,7 @@ function tryMove(x, y){
   const token = document.getElementById('player-token');
   token.style.left = (playerX*TILE_PX)+'px';
   token.style.top = (playerY*TILE_PX)+'px';
+  centerOnPlayer(true);
 
   if (currentMap.encounter_grid[y]?.[x]){
     if (Math.random() < currentMap.encounter_rate) {
@@ -381,6 +388,7 @@ async function tryResumeExplore(){
     document.getElementById('step-count').textContent = steps;
     switchView('view-explore');
     renderMap();
+    centerOnPlayer(false);
   } catch(err){ console.error('Rückkehr fehlgeschlagen', err); }
 }
 </script>
