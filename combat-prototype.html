@@ -44,23 +44,55 @@
   .skill-chip{font-size:11px; padding:3px 8px; border-radius:100px; border:1px solid var(--line); background:var(--surface-2); cursor:pointer;}
   .skill-chip.on{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
 
-  .battlefield{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:20px;}
-  .side h3{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px;}
-  .bunit{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; position:relative;}
-  .bunit.dead{opacity:.35;}
-  .bunit.active-turn{border-color:var(--gold);}
-  .bunit .bname{font-weight:600; font-size:13.5px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
-  .level-badge{
-    font-size:9px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 7px;
-    flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,.4) inset;
+  .arena{
+    position:relative; background:linear-gradient(180deg,#16261c 0%,#0f1a14 100%); border:2px solid #0a120d;
+    border-radius:10px; padding:18px 10px 14px; margin-bottom:16px; overflow:hidden;
   }
-  .bunit .bpos{font-size:10px; color:var(--muted); text-transform:uppercase;}
-  .barwrap{height:7px; background:var(--surface-3); border-radius:4px; overflow:hidden; margin-top:5px;}
-  .barfill{height:100%;}
-  .barfill.hp{background:var(--hp);}
-  .barfill.mp{background:var(--mp);}
-  .barlabel{font-size:10px; color:var(--muted); margin-top:2px; display:flex; justify-content:space-between;}
-  .buffs{font-size:10px; margin-top:4px; color:var(--gold);}
+  .road{
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(0deg, #1c2f21 0 20px, #223a28 20px 40px);
+    clip-path: polygon(30% 0%, 70% 0%, 96% 100%, 4% 100%);
+  }
+  .lane-row{position:relative; z-index:2; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; padding:8px 0;}
+  .unit-slot{display:flex; flex-direction:column; align-items:center; width:88px;}
+  .enemy-row .unit-slot{width:74px;}
+  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center;}
+  .level-badge{font-size:8px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 5px; flex-shrink:0;}
+  .u-barwrap{width:80px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; margin-top:3px; position:relative;}
+  .enemy-row .u-barwrap{width:66px; height:9px;}
+  .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
+  .u-barfill.hp{background:var(--hp, #4caf50);}
+  .u-barfill.hp.low{background:#c94a3a;}
+  .u-barfill.mp{background:var(--mp, #3d8ec9);}
+  .u-barnum{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:7.5px; font-weight:700; color:#fff; text-shadow:1px 1px 0 rgba(0,0,0,.8);}
+
+  .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
+  .enemy-row .sprite-wrap{width:42px; height:42px;}
+  .shadow{position:absolute; bottom:-3px; width:60%; height:8px; background:rgba(0,0,0,.5); border-radius:50%; filter:blur(1.5px);}
+  .sprite{
+    width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px;
+    animation: idle 1.8s ease-in-out infinite; box-shadow:0 0 0 2px #000 inset, 0 3px 0 rgba(0,0,0,.4); position:relative;
+  }
+  .enemy-row .sprite{font-size:18px;}
+  .hero-row .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
+  .enemy-row .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
+  .unit-slot.dead .sprite{filter:grayscale(1) brightness(.4); animation:none;}
+  .unit-slot.dead{opacity:.5;}
+  .unit-slot.active-turn .sprite{box-shadow:0 0 0 2px var(--gold) inset, 0 0 8px var(--gold);}
+  @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+  .sprite.lunge-up{animation:lungeUp .4s ease-in-out;}
+  @keyframes lungeUp{0%{transform:translateY(0);}40%{transform:translateY(-46px) scale(1.06);}100%{transform:translateY(0);}}
+  .sprite.lunge-down{animation:lungeDown .4s ease-in-out;}
+  @keyframes lungeDown{0%{transform:translateY(0);}40%{transform:translateY(46px) scale(1.06);}100%{transform:translateY(0);}}
+  .sprite.hit-flash{animation:hitFlash .32s ease-in-out;}
+  @keyframes hitFlash{0%{filter:none;}20%{filter:brightness(3) saturate(0);}40%{filter:brightness(1);}100%{filter:none;}}
+  .dmg-pop{position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:800; text-shadow:1px 1px 0 #000; opacity:0; pointer-events:none; z-index:9;}
+  .dmg-pop.dmg{color:#ff5a4d;}
+  .dmg-pop.heal{color:#7ee08a;}
+  .dmg-pop.show{animation:popUp .9s ease-out forwards;}
+  @keyframes popUp{0%{opacity:0;transform:translate(-50%,0) scale(.6);}15%{opacity:1;transform:translate(-50%,-14px) scale(1.1);}100%{opacity:0;transform:translate(-50%,-40px) scale(1);}}
+  .shield-badge{position:absolute; top:-4px; right:-4px; font-size:11px; z-index:6;}
+  .buffs{font-size:8px; color:var(--gold); margin-top:2px; text-align:center;}
 
   #action-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:20px;}
   #action-panel h3{margin:0 0 10px; font-size:14px;}
@@ -100,16 +132,17 @@
   @media (orientation: landscape) and (max-height: 500px){
     main{max-width:100%; padding:8px 14px 60px;}
     header{padding:8px 14px;}
-    .battlefield{grid-template-columns:1fr 1fr; gap:14px;}
-    #battle-log{height:110px;}
-    .bunit{padding:7px 10px; margin-bottom:5px;}
+    #battle-log{height:90px;}
+    .arena{padding:10px 8px;}
+    .unit-slot{width:70px;}
+    .enemy-row .unit-slot{width:60px;}
   }
 
   @media (max-width: 700px){
     main{padding:14px 12px 80px;}
     header{padding:12px 14px;}
     header h1{font-size:15px;}
-    .battlefield{grid-template-columns:1fr; gap:16px;}
+    .arena{padding:10px 8px;}
     .card-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px;}
     .unit-pick-card{padding:9px;}
     .roster-row{padding:9px 10px; gap:8px;}
@@ -169,7 +202,6 @@
 
   <!-- ================= BATTLE ================= -->
   <section class="view" id="view-battle">
-    <h2>3. Kampf</h2>
     <div class="toolbar" style="justify-content:space-between;">
       <span id="wave-indicator" class="mono" style="font-size:12px;color:var(--gold);">Welle 1 von 1</span>
       <div style="display:flex;gap:8px;">
@@ -177,15 +209,10 @@
         <button id="autobattle-toggle">🤖 Autokampf: Aus</button>
       </div>
     </div>
-    <div class="battlefield">
-      <div class="side">
-        <h3>Dein Team</h3>
-        <div id="player-field"></div>
-      </div>
-      <div class="side">
-        <h3>Gegner</h3>
-        <div id="enemy-field"></div>
-      </div>
+    <div class="arena">
+      <div class="road"></div>
+      <div class="lane-row enemy-row" id="enemy-field"></div>
+      <div class="lane-row hero-row" id="player-field"></div>
     </div>
     <div id="action-panel" style="display:none;"></div>
     <div id="battle-log"></div>
@@ -501,26 +528,77 @@ function log(cls, text){
   battleLogEl.scrollTop = battleLogEl.scrollHeight;
 }
 
-function renderField(){
-  const render = (side, el) => {
-    el.innerHTML = battleUnits.filter(u=>u.side===side).map(u => {
-      const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
-      return `
-      <div class="bunit ${u.hp<=0?'dead':''} ${u===currentActor?'active-turn':''}">
-        <div class="bname">
-          <span><span class="level-badge" style="background:${badgeColor};">Lvl ${u.level}</span> ${u.name}</span>
-          <span class="bpos">${u.position}${u.shield>0?' 🛡'+Math.round(u.shield):''}</span>
-        </div>
-        <div class="barlabel"><span>HP</span><span class="mono">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</span></div>
-        <div class="barwrap"><div class="barfill hp" style="width:${Math.max(0,u.hp/u.maxHp*100)}%"></div></div>
-        <div class="barlabel"><span>MP</span><span class="mono">${Math.round(u.mp)}/${u.maxMp}</span></div>
-        <div class="barwrap"><div class="barfill mp" style="width:${u.mp/u.maxMp*100}%"></div></div>
-        ${u.buffs.length ? `<div class="buffs">${u.buffs.map(b=>`${b.factor>0?'+':''}${Math.round(b.factor*100)}% ${b.stat.toUpperCase()} (${b.turnsLeft})`).join(', ')}</div>` : ''}
+const CLASS_ICON = { 'Mensch':'⚔️', 'Himmelswesen':'😇', 'Höllenwesen':'👹', 'Bestie':'🐺' };
+
+function buffsText(u){ return u.buffs.length ? u.buffs.map(b=>`${b.factor>0?'+':''}${Math.round(b.factor*100)}%${b.stat.toUpperCase()}`).join(' ') : ''; }
+
+function unitSlotHtml(u){
+  const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
+  const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
+  const hpPct = Math.max(0, u.hp/u.maxHp*100);
+  const mpPct = Math.max(0, u.mp/u.maxMp*100);
+  return `
+    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
+      <div class="sprite-wrap">
+        <div class="shadow"></div>
+        <div class="sprite" data-sprite="${u.uid}">${icon}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
-    `; }).join('');
-  };
-  render('player', playerFieldEl);
-  render('enemy', enemyFieldEl);
+      <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
+      <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
+      <div class="u-barwrap"><div class="u-barfill mp" data-mpbar="${u.uid}" style="width:${mpPct}%"></div><div class="u-barnum" data-mptext="${u.uid}">${Math.round(u.mp)}/${u.maxMp}</div></div>
+      <div class="buffs" data-buffs="${u.uid}">${buffsText(u)}</div>
+    </div>`;
+}
+
+function buildField(){
+  playerFieldEl.innerHTML = battleUnits.filter(u=>u.side==='player').map(unitSlotHtml).join('');
+  enemyFieldEl.innerHTML = battleUnits.filter(u=>u.side==='enemy').map(unitSlotHtml).join('');
+}
+// Rückwärtskompatibler Alias (frühere Aufrufe im Code)
+function renderField(){ buildField(); }
+
+function updateUnitVisual(u){
+  const slot = document.querySelector(`.unit-slot[data-uid="${u.uid}"]`);
+  if (!slot) return;
+  slot.classList.toggle('dead', u.hp<=0);
+  const hpPct = Math.max(0, u.hp/u.maxHp*100);
+  const mpPct = Math.max(0, u.mp/u.maxMp*100);
+  const hpBar = slot.querySelector('[data-hpbar]');
+  hpBar.style.width = hpPct+'%'; hpBar.classList.toggle('low', hpPct<30);
+  slot.querySelector('[data-hptext]').textContent = `${Math.max(0,Math.round(u.hp))}/${u.maxHp}`;
+  slot.querySelector('[data-mpbar]').style.width = mpPct+'%';
+  slot.querySelector('[data-mptext]').textContent = `${Math.round(u.mp)}/${u.maxMp}`;
+  slot.querySelector('[data-buffs]').textContent = buffsText(u);
+  const sprite = slot.querySelector('.sprite');
+  let shieldEl = sprite.querySelector('[data-shield]');
+  if (u.shield>0 && !shieldEl){ sprite.insertAdjacentHTML('afterbegin', `<span class="shield-badge" data-shield="${u.uid}">🛡</span>`); }
+  else if (u.shield<=0 && shieldEl){ shieldEl.remove(); }
+}
+
+function highlightActive(actor){
+  document.querySelectorAll('.unit-slot.active-turn').forEach(el=>el.classList.remove('active-turn'));
+  const slot = document.querySelector(`.unit-slot[data-uid="${actor.uid}"]`);
+  if (slot) slot.classList.add('active-turn');
+}
+
+function animateAttacker(u){
+  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
+  if (!sprite) return;
+  sprite.classList.remove('lunge-up','lunge-down'); void sprite.offsetWidth;
+  sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
+}
+
+function animateHit(u, text, cls){
+  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
+  if (!sprite) return;
+  if (cls==='dmg'){ sprite.classList.remove('hit-flash'); void sprite.offsetWidth; sprite.classList.add('hit-flash'); }
+  const pop = sprite.querySelector('.dmg-pop');
+  if (pop && text){
+    pop.textContent = text;
+    pop.className = 'dmg-pop ' + cls;
+    void pop.offsetWidth;
+    pop.classList.add('show');
+  }
 }
 
 let currentActor = null;
@@ -566,15 +644,16 @@ function validTargets(actor, skill){
 
 function resolveAction(actor, skill, targets){
   actor.mp -= skill.mp_cost;
+  const results = [];
   if (skill.effect_type==='revive'){
-    // Ziel ist tot -> aus dead-Liste
     const dead = deadOf(actor.side);
     const target = dead[0];
-    if (!target){ log('sys', `${actor.name} findet niemanden zum Wiederbeleben.`); return; }
+    if (!target){ log('sys', `${actor.name} findet niemanden zum Wiederbeleben.`); return results; }
     target.hp = Math.round(target.maxHp * skill.power/100);
     target.alive = true;
     log('heal', `${actor.name} belebt ${target.name} mit ${target.hp} HP wieder!`);
-    return;
+    results.push({target, text:'✨ Wiederbelebt', cls:'heal'});
+    return results;
   }
   for (const target of targets){
     switch(skill.effect_type){
@@ -594,6 +673,7 @@ function resolveAction(actor, skill, targets){
         }
         target.hp -= dmg;
         log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${target.hp<=0?' — besiegt!':''}`);
+        results.push({target, text:'-'+dmg, cls:'dmg'});
         if (target.hp<=0){ target.hp=0; target.alive=false; }
         break;
       }
@@ -601,12 +681,14 @@ function resolveAction(actor, skill, targets){
         const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
         target.hp = Math.min(target.maxHp, target.hp+amount);
         log('heal', `${actor.name} heilt ${target.name} um ${amount} (${skill.name}).`);
+        results.push({target, text:'+'+amount, cls:'heal'});
         break;
       }
       case 'shield': {
         const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
         target.shield += amount;
         log('buff', `${actor.name} gewährt ${target.name} einen Schild von ${amount} (${skill.name}).`);
+        results.push({target, text:'🛡'+amount, cls:'heal'});
         break;
       }
       case 'buff':
@@ -614,15 +696,18 @@ function resolveAction(actor, skill, targets){
         const sign = skill.effect_type==='buff' ? 1 : -1;
         target.buffs.push({ stat: skill.buff_stat, factor: sign*(skill.power/100), turnsLeft: (skill.duration_turns||1)+1 });
         log('buff', `${actor.name} wirkt ${skill.name} auf ${target.name}: ${sign>0?'+':''}${sign*skill.power}% ${(skill.buff_stat||'').toUpperCase()} für ${skill.duration_turns||1} Runden.`);
+        results.push({target, text: sign>0?'▲':'▼', cls:'heal'});
         break;
       }
       case 'cleanse': {
         target.buffs = target.buffs.filter(b=>b.factor>0);
         log('buff', `${actor.name} reinigt ${target.name} von negativen Effekten (${skill.name}).`);
+        results.push({target, text:'✳️', cls:'heal'});
         break;
       }
     }
   }
+  return results;
 }
 
 function pickAIAction(actor){
@@ -663,7 +748,7 @@ function advanceWave(){
   const nextWave = waveChunks[currentWaveIndex].map(e=>buildBattleUnit(e,'enemy'));
   battleUnits.push(...nextWave);
   updateWaveIndicator();
-  renderField();
+  buildField();
 }
 
 function updateWaveIndicator(){
@@ -677,19 +762,33 @@ async function battleLoop(){
     if (!currentActor.alive) continue;
     currentActor.mp = Math.min(currentActor.maxMp, currentActor.mp + currentActor.mpRegen);
     tickBuffs(currentActor);
-    renderField();
+    highlightActive(currentActor);
+    updateUnitVisual(currentActor);
 
     if (checkBattleEnd()) return;
 
+    let skill, targets;
     if (currentActor.side==='player' && !autoBattle){
-      const {skill, targets} = await waitForPlayerAction(currentActor);
-      resolveAction(currentActor, skill, targets);
+      ({skill, targets} = await waitForPlayerAction(currentActor));
     } else {
       const action = pickAIAction(currentActor);
-      if (action) resolveAction(currentActor, action.skill, action.targets);
-      else log('sys', `${currentActor.name} kann nichts tun.`);
+      if (!action){
+        log('sys', `${currentActor.name} kann nichts tun.`);
+        await new Promise(r=>setTimeout(r, 200/battleSpeed));
+        continue;
+      }
+      skill = action.skill; targets = action.targets;
     }
-    renderField();
+
+    animateAttacker(currentActor);
+    await new Promise(r=>setTimeout(r, 220/battleSpeed));
+
+    const results = resolveAction(currentActor, skill, targets);
+    results.forEach(r => animateHit(r.target, r.text, r.cls));
+    await new Promise(r=>setTimeout(r, 160/battleSpeed));
+    results.forEach(r => updateUnitVisual(r.target));
+    updateUnitVisual(currentActor);
+
     if (checkBattleEnd()) return;
     await new Promise(r=>setTimeout(r, 200/battleSpeed));
   }
