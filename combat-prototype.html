@@ -93,6 +93,9 @@
   @keyframes popUp{0%{opacity:0;transform:translate(-50%,0) scale(.6);}15%{opacity:1;transform:translate(-50%,-14px) scale(1.1);}100%{opacity:0;transform:translate(-50%,-40px) scale(1);}}
   .shield-badge{position:absolute; top:-4px; right:-4px; font-size:11px; z-index:6;}
   .buffs{font-size:8px; color:var(--gold); margin-top:2px; text-align:center;}
+  .unit-slot.targetable{cursor:pointer;}
+  .unit-slot.targetable .sprite{animation: idle 1.8s ease-in-out infinite, targetPulse .9s ease-in-out infinite;}
+  @keyframes targetPulse{0%,100%{box-shadow:0 0 0 2px #ffcf4a inset, 0 0 6px #ffcf4a;}50%{box-shadow:0 0 0 3px #ffcf4a inset, 0 0 14px #ffcf4a;}}
 
   #action-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:20px;}
   #action-panel h3{margin:0 0 10px; font-size:14px;}
@@ -471,7 +474,7 @@ function buildBattleUnit(entry, side){
   return {
     uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
     name: entry.unit.name, side, position: entry.position,
-    classId: entry.unit.class_id, elementId: entry.unit.element_id,
+    classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
     maxHp: eff.maxHp, hp: eff.maxHp, maxMp: eff.maxMp, mp: eff.maxMp,
     atk: eff.atk, def: eff.def, spd: eff.spd, mpRegen: eff.mpRegen,
     skills, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
@@ -530,18 +533,29 @@ function log(cls, text){
 
 const CLASS_ICON = { 'Mensch':'⚔️', 'Himmelswesen':'😇', 'Höllenwesen':'👹', 'Bestie':'🐺' };
 
-function buffsText(u){ return u.buffs.length ? u.buffs.map(b=>`${b.factor>0?'+':''}${Math.round(b.factor*100)}%${b.stat.toUpperCase()}`).join(' ') : ''; }
+function buffsText(u){
+  if (!u.buffs.length) return '';
+  const sums = {};
+  u.buffs.forEach(b => { sums[b.stat] = (sums[b.stat]||0) + b.factor; });
+  return Object.entries(sums)
+    .filter(([,v]) => Math.abs(v) > 0.0001)
+    .map(([stat,v]) => `${v>0?'+':''}${Math.round(v*100)}%${stat.toUpperCase()}`)
+    .join(' ');
+}
 
 function unitSlotHtml(u){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
+  const visual = u.spriteUrl
+    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" />`
+    : icon;
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   const mpPct = Math.max(0, u.mp/u.maxMp*100);
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
       <div class="sprite-wrap">
         <div class="shadow"></div>
-        <div class="sprite" data-sprite="${u.uid}">${icon}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
+        <div class="sprite" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
       <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
       <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
@@ -798,14 +812,13 @@ function waitForPlayerAction(actor){
   return new Promise(resolve => {
     const affordable = actor.skills.filter(s=>s.mp_cost<=actor.mp);
     actionPanelEl.style.display = 'block';
-    actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row" id="skill-choices"></div><div class="target-btn-row" id="target-choices"></div>`;
+    actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row round-mode" id="skill-choices"></div><p id="target-hint" style="font-size:11px;color:var(--gold);margin:8px 0 0;display:none;">👆 Ziel im Kampffeld antippen…</p>`;
     const skillBox = document.getElementById('skill-choices');
     if (!affordable.length){
       skillBox.innerHTML = `<span style="color:var(--muted);font-size:12px;">Keine bezahlbare Fähigkeit — Zug wird übersprungen.</span>`;
       setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,mp_cost:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
       return;
     }
-    skillBox.className = 'round-mode';
     skillBox.innerHTML = affordable.map((s,i) => `
       <div class="round-skill-wrap">
         <button class="round-skill-btn skill-opt" data-i="${i}">${skillIcon(s)}<span class="mp-badge">${s.mp_cost} MP</span></button>
@@ -816,22 +829,37 @@ function waitForPlayerAction(actor){
       btn.addEventListener('click', () => {
         const skill = affordable[+btn.dataset.i];
         const targets = validTargets(actor, skill);
-        const targetBox = document.getElementById('target-choices');
         if (skill.target_type==='all_allies' || skill.target_type==='all_enemies' || skill.target_type==='self'){
           actionPanelEl.style.display='none';
           resolve({ skill, targets: skill.target_type==='self'?[actor]:targets });
           return;
         }
-        targetBox.innerHTML = targets.map((t,i)=>`<button class="target-opt" data-i="${i}">${t.name} (${Math.round(t.hp)} HP)</button>`).join('');
-        targetBox.querySelectorAll('.target-opt').forEach(tbtn => {
-          tbtn.addEventListener('click', () => {
-            actionPanelEl.style.display='none';
-            resolve({ skill, targets: [targets[+tbtn.dataset.i]] });
-          });
+        enterTargetingMode(targets, (target) => {
+          actionPanelEl.style.display='none';
+          resolve({ skill, targets: [target] });
         });
       });
     });
   });
+}
+
+function enterTargetingMode(targets, onPick){
+  const hint = document.getElementById('target-hint');
+  if (hint) hint.style.display = 'block';
+  const uids = new Set(targets.map(t=>t.uid));
+  const slots = [...document.querySelectorAll('.unit-slot')].filter(el=>uids.has(el.dataset.uid));
+  slots.forEach(el => el.classList.add('targetable'));
+  function cleanup(){
+    slots.forEach(el => { el.classList.remove('targetable'); el.removeEventListener('click', handler); });
+    if (hint) hint.style.display = 'none';
+  }
+  function handler(e){
+    const uid = e.currentTarget.dataset.uid;
+    const target = targets.find(t=>t.uid===uid);
+    cleanup();
+    if (target) onPick(target);
+  }
+  slots.forEach(el => el.addEventListener('click', handler));
 }
 
 function showResult(victory){
