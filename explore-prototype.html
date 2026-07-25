@@ -27,7 +27,13 @@
   .card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:16px;}
   .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:9px; cursor:pointer; font-size:12.5px;}
   .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
+  .upthumb{width:100%; height:50px; border-radius:6px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:6px; overflow:hidden;}
+  .upthumb img{width:100%; height:100%; object-fit:cover;}
+  .upbadges{display:flex; gap:4px; margin:4px 0; flex-wrap:wrap;}
+  .up-badge{font-size:9px; font-weight:700; color:#1a1712; border-radius:100px; padding:1px 7px;}
+  .up-badge.rarity{background:var(--surface-3); color:var(--muted);}
   .toolbar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  #hero-filter-bar select{width:auto; flex:1; min-width:100px;}
 
   .status-bar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:12.5px; color:var(--muted);}
   .status-bar strong{color:var(--gold);}
@@ -71,6 +77,11 @@
   <section class="view active" id="view-team">
     <h2 style="font-size:16px;">1. Team wählen</h2>
     <p style="color:var(--muted);font-size:12.5px;">Bis zu 5 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
+    <div class="toolbar" id="hero-filter-bar">
+      <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
+      <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
+      <select id="hero-filter-rarity"><option value="all">Alle Seltenheiten</option></select>
+    </div>
     <div class="card-grid" id="hero-pick-grid"></div>
     <div class="toolbar">
       <button class="primary" id="to-map-select-btn">Weiter →</button>
@@ -169,21 +180,43 @@ function tileHtml(map, x, y){
   return { bg, bgIsImage, inner };
 }
 
-let UNITS = [], MAPS = [], TILESETS = {};
+let UNITS = [], MAPS = [], TILESETS = {}, ELEMENTS = [], CLASSES = [], RARITIES = [];
 let teamSetup = [];
 let currentMap = null;
 let playerX = 0, playerY = 0, steps = 0;
+const ELEMENT_BADGE_COLORS = { 'Feuer':'#d9705a', 'Wasser':'#5ea3cf', 'Erde':'#b89968', 'Luft':'#eef1ea' };
+const CLASS_ICON = { 'Mensch':'⚔️', 'Himmelswesen':'😇', 'Höllenwesen':'👹', 'Bestie':'🐺' };
+function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
+function classOf(id){ return CLASSES.find(c=>c.id===id); }
+function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
 
 async function loadAll(){
-  const [un, mp, ts] = await Promise.all([
+  const [un, mp, ts, el, cl, ra] = await Promise.all([
     supabase.from('units').select('*').eq('is_playable', true),
     supabase.from('maps').select('*').order('name'),
     supabase.from('tilesets').select('*'),
+    supabase.from('elements').select('*'),
+    supabase.from('classes').select('*'),
+    supabase.from('rarities').select('*'),
   ]);
   UNITS = un.data || []; MAPS = mp.data || [];
+  ELEMENTS = el.data || []; CLASSES = cl.data || []; RARITIES = ra.data || [];
   TILESETS = {};
   (ts.data||[]).forEach(t => { TILESETS[`${t.layer}:${t.type_key}:${t.shape}`] = t.image_url; });
   document.getElementById('config-status').textContent = `${UNITS.length} Helden, ${MAPS.length} Karten`;
+  populateHeroFilters();
+}
+
+function populateHeroFilters(){
+  const usedElemIds = [...new Set(UNITS.map(u=>u.element_id))];
+  const usedClassIds = [...new Set(UNITS.map(u=>u.class_id))];
+  const usedRarityIds = [...new Set(UNITS.map(u=>u.rarity_id).filter(Boolean))];
+  document.getElementById('hero-filter-element').innerHTML = `<option value="all">Alle Elemente</option>` + usedElemIds.map(id=>`<option value="${id}">${elementOf(id)?.name||'?'}</option>`).join('');
+  document.getElementById('hero-filter-class').innerHTML = `<option value="all">Alle Klassen</option>` + usedClassIds.map(id=>`<option value="${id}">${classOf(id)?.name||'?'}</option>`).join('');
+  document.getElementById('hero-filter-rarity').innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.filter(r=>usedRarityIds.includes(r.id)).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderHeroGrid);
+  });
 }
 
 function computeShapeRotation(up, down, left, right){
@@ -237,12 +270,31 @@ function switchView(id){
 
 // ---------- Team-Auswahl ----------
 function renderHeroGrid(){
+  const elVal = document.getElementById('hero-filter-element').value;
+  const clVal = document.getElementById('hero-filter-class').value;
+  const raVal = document.getElementById('hero-filter-rarity').value;
+  const filtered = UNITS.filter(u => {
+    const elOk = elVal==='all' || String(u.element_id)===String(elVal);
+    const clOk = clVal==='all' || String(u.class_id)===String(clVal);
+    const raOk = raVal==='all' || String(u.rarity_id)===String(raVal);
+    return elOk && clOk && raOk;
+  });
   const grid = document.getElementById('hero-pick-grid');
-  grid.innerHTML = UNITS.map(u => `
+  grid.innerHTML = filtered.map(u => {
+    const elName = elementOf(u.element_id)?.name;
+    const rar = rarityOf(u.rarity_id);
+    const icon = CLASS_ICON[classOf(u.class_id)?.name] || '🗡️';
+    return `
     <div class="unit-pick-card ${teamSetup.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
-      <strong>${u.name}</strong><br><span style="color:var(--muted);">${u.style||''}</span>
+      <div class="upthumb">${u.sprite_url ? `<img src="${u.sprite_url}" alt="" />` : icon}</div>
+      <strong>${u.name}</strong>
+      <div class="upbadges">
+        <span class="up-badge" style="background:${ELEMENT_BADGE_COLORS[elName]||'#888'};">${elName||'?'}</span>
+        ${rar ? `<span class="up-badge rarity">${rar.name}</span>` : ''}
+      </div>
+      <span style="color:var(--muted);">${u.style||''}</span>
     </div>
-  `).join('');
+  `; }).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Helden für diese Filter gefunden.</div>`;
   grid.querySelectorAll('.unit-pick-card').forEach(card => {
     card.addEventListener('click', async () => {
       const id = card.dataset.id;
@@ -344,7 +396,7 @@ document.addEventListener('keydown', (e) => {
 async function triggerEncounter(){
   const { data: pool, error } = await supabase.from('units').select('*, rarities(name)').eq('area_tag', currentMap.area_tag);
   if (error || !pool || !pool.length) { alert('Keine Gegner für dieses Gebiet hinterlegt (area_tag stimmt nicht überein?).'); return; }
-  const eligible = pool.filter(u => !u.is_playable || (u.is_playable && u.rarities?.name !== 'Episch'));
+  const eligible = pool.filter(u => !u.is_playable || (u.is_playable && !['Episch','Legendär'].includes(u.rarities?.name)));
   if (!eligible.length){ alert('Kein gültiger Gegner-Pool gefunden.'); return; }
 
   const enemies = [];

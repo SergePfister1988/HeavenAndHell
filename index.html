@@ -110,6 +110,7 @@
   .badge.rarity-Stark{background:#2b3e34; color:#9fcdae;}
   .badge.rarity-Held{background:#2c3550; color:#a9b8ea;}
   .badge.rarity-Episch{background:#4a2c50; color:#dcaaee;}
+  .badge.rarity-Legendär{background:#5a3a0a; color:#f5c85a; box-shadow:0 0 4px rgba(245,200,90,.5);}
 
   /* ---------- Modal / drawer ---------- */
   .overlay{position:fixed; inset:0; background:rgba(10,9,6,.6); display:none; align-items:flex-start; justify-content:flex-end; z-index:50;}
@@ -640,7 +641,7 @@ function openUnitDrawer(unit){
   const togglePlayableFields = () => {
     const isHero = document.getElementById('f-is-playable').value === 'true';
     const rarityName = RARITIES.find(r => String(r.id) === String(document.getElementById('f-rarity').value))?.name;
-    const isEpicHero = isHero && rarityName === 'Episch';
+    const isEpicHero = isHero && ['Episch','Legendär'].includes(rarityName);
     document.getElementById('rarity-field').style.display = isHero ? 'block' : 'none';
     document.getElementById('field-encounter-fields').style.display = isEpicHero ? 'none' : 'block';
     document.getElementById('monster-only-fields').style.display = isHero ? 'none' : 'block';

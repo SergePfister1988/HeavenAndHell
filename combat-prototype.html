@@ -29,10 +29,15 @@
   select, input{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:6px 8px; font-family:'Inter',sans-serif;}
 
   .card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:20px;}
-  .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px; cursor:pointer;}
+  .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer;}
   .unit-pick-card:hover{border-color:var(--gold-soft);}
   .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
-  .unit-pick-card .upname{font-weight:600;}
+  .upthumb{width:100%; height:56px; border-radius:6px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:6px; overflow:hidden;}
+  .upthumb img{width:100%; height:100%; object-fit:cover;}
+  .upname{font-weight:600; font-size:12.5px;}
+  .upbadges{display:flex; gap:4px; margin:4px 0; flex-wrap:wrap;}
+  .up-badge{font-size:9px; font-weight:700; color:#1a1712; border-radius:100px; padding:1px 7px;}
+  .up-badge.rarity{background:var(--surface-3); color:var(--muted);}
   .upmeta{font-size:11.5px; color:var(--muted); margin-top:2px;}
 
   .roster-list{display:flex; flex-direction:column; gap:10px; margin-bottom:20px;}
@@ -347,13 +352,22 @@ function applyFilters(prefix, options){
 function renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster){
   const options = applyFilters(filterPrefix, allOptions);
   const grid = document.getElementById(containerId);
-  grid.innerHTML = options.map(u => `
+  grid.innerHTML = options.map(u => {
+    const elName = elementOf(u.element_id)?.name;
+    const rar = rarityOf(u.rarity_id);
+    const icon = CLASS_ICON[classOf(u.class_id)?.name] || (u.is_playable?'🗡️':'👹');
+    return `
     <div class="unit-pick-card ${targetArray.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
+      <div class="upthumb">${u.sprite_url ? `<img src="${u.sprite_url}" alt="" />` : icon}</div>
       <div class="upname">${u.name}</div>
-      <div class="upmeta">${classOf(u.class_id)?.name||'?'} · ${elementOf(u.element_id)?.name||'?'} · ${rarityOf(u.rarity_id)?.name || (u.is_playable?'—':'Monster')}</div>
+      <div class="upbadges">
+        <span class="up-badge" style="background:${ELEMENT_BADGE_COLORS[elName]||'#888'};">${elName||'?'}</span>
+        ${rar ? `<span class="up-badge rarity">${rar.name}</span>` : ''}
+      </div>
+      <div class="upmeta">${classOf(u.class_id)?.name||'?'}</div>
       <div class="upmeta" style="color:var(--gold);">${u.style || (u.is_playable?'Held':'Monster')}</div>
     </div>
-  `).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Einheiten für diese Filter gefunden.</div>`;
+  `; }).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Einheiten für diese Filter gefunden.</div>`;
   grid.querySelectorAll('.unit-pick-card').forEach(card => {
     card.addEventListener('click', () => {
       const id = card.dataset.id;
