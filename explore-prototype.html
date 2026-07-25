@@ -35,9 +35,17 @@
   .map-wrap{overflow:auto; border:1px solid var(--line); border-radius:10px; background:#000; max-height:70vh;}
   .map-grid{display:grid; position:relative;}
   .tile{position:relative;}
+  .tile{position:relative;}
+  .t-node{position:absolute; left:28%; top:28%; width:44%; height:44%; border-radius:35%; z-index:1;}
+  .t-arm{position:absolute; z-index:1;}
+  .t-arm.up{left:28%; top:0; width:44%; height:56%;}
+  .t-arm.down{left:28%; top:44%; width:44%; height:56%;}
+  .t-arm.left{left:0; top:28%; width:56%; height:44%;}
+  .t-arm.right{left:44%; top:28%; width:56%; height:44%;}
+  .t-shine{position:absolute; inset:0; background:linear-gradient(160deg, rgba(255,255,255,.16), transparent 55%); z-index:2; pointer-events:none;}
   .player-token{
     position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center;
-    font-size:14px; filter:drop-shadow(0 0 3px #000); transition: left .15s ease, top .15s ease; pointer-events:none;
+    font-size:14px; filter:drop-shadow(0 0 3px #000); transition: left .15s ease, top .15s ease; pointer-events:none; z-index:5;
   }
 
   .encounter-overlay{
@@ -105,7 +113,33 @@ const SUPABASE_ANON_KEY = 'sb_publishable_PAGzKtZZvjorx4Bs9S2LcA_UDFu6Smq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
 const TERRAIN_COLOR = { gras:'#2f5233', weg:'#a68a5b', wasser:'#2f6f96', fels:'#5c5c5c', baum:'#1f4a24', sand:'#cdb877' };
+const CONNECTABLE = ['wasser','weg'];
 const TILE_PX = 24;
+
+function sameType(grid, x, y, dx, dy, w, h, type){
+  const nx=x+dx, ny=y+dy;
+  if (nx<0||ny<0||nx>=w||ny>=h) return false;
+  return (grid[ny]?.[nx] || 'gras') === type;
+}
+
+function tileHtml(grid, x, y, w, h){
+  const type = grid[y]?.[x] || 'gras';
+  if (!CONNECTABLE.includes(type)){
+    return { bg: TERRAIN_COLOR[type] || TERRAIN_COLOR.gras, inner: '' };
+  }
+  const color = TERRAIN_COLOR[type];
+  const up = sameType(grid,x,y,0,-1,w,h,type);
+  const down = sameType(grid,x,y,0,1,w,h,type);
+  const left = sameType(grid,x,y,-1,0,w,h,type);
+  const right = sameType(grid,x,y,1,0,w,h,type);
+  let inner = `<span class="t-node" style="background:${color};"></span>`;
+  if (up) inner += `<span class="t-arm up" style="background:${color};"></span>`;
+  if (down) inner += `<span class="t-arm down" style="background:${color};"></span>`;
+  if (left) inner += `<span class="t-arm left" style="background:${color};"></span>`;
+  if (right) inner += `<span class="t-arm right" style="background:${color};"></span>`;
+  inner += `<span class="t-shine"></span>`;
+  return { bg: TERRAIN_COLOR.gras, inner }; // Fluss/Weg liegt "auf" dem Grasboden
+}
 
 let UNITS = [], MAPS = [];
 let teamSetup = [];
@@ -181,10 +215,10 @@ function renderMap(){
   const cells = [];
   for (let y=0; y<currentMap.height; y++){
     for (let x=0; x<currentMap.width; x++){
-      const terrain = currentMap.terrain_grid[y]?.[x] || 'gras';
       const blocked = !!currentMap.collision_grid[y]?.[x];
       const enc = !!currentMap.encounter_grid[y]?.[x];
-      cells.push(`<div class="tile" data-x="${x}" data-y="${y}" style="width:${TILE_PX}px;height:${TILE_PX}px;background:${TERRAIN_COLOR[terrain]||'#2f5233'};${blocked?'box-shadow:inset 0 0 0 1px rgba(165,71,58,.7);':''}${enc?'outline:1px dashed rgba(224,184,74,.7);outline-offset:-2px;':''}"></div>`);
+      const { bg, inner } = tileHtml(currentMap.terrain_grid, x, y, currentMap.width, currentMap.height);
+      cells.push(`<div class="tile" data-x="${x}" data-y="${y}" style="width:${TILE_PX}px;height:${TILE_PX}px;background:${bg};${blocked?'box-shadow:inset 0 0 0 1px rgba(165,71,58,.7);':''}${enc?'outline:1px dashed rgba(224,184,74,.7);outline-offset:-2px;':''}">${inner}</div>`);
     }
   }
   grid.innerHTML = cells.join('') + `<div class="player-token" id="player-token" style="left:${playerX*TILE_PX}px; top:${playerY*TILE_PX}px; width:${TILE_PX}px; height:${TILE_PX}px;">🧍</div>`;
@@ -230,6 +264,7 @@ async function triggerEncounter(){
   const teamPayload = teamSetup.map(e => ({ unitId: e.unit.id, level: e.level, star: e.star, position: e.position, activeSkillIds: [...e.activeSkillIds] }));
 
   sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies }));
+  sessionStorage.setItem('hah_return_explore', JSON.stringify({ mapId: currentMap.id, x: playerX, y: playerY, steps, team: teamPayload }));
   document.getElementById('encounter-overlay').classList.add('show');
 }
 document.getElementById('enter-battle-btn').addEventListener('click', () => {
@@ -239,7 +274,29 @@ document.getElementById('enter-battle-btn').addEventListener('click', () => {
 (async () => {
   await loadAll();
   renderHeroGrid();
+  await tryResumeExplore();
 })();
+
+async function tryResumeExplore(){
+  const raw = sessionStorage.getItem('hah_return_explore');
+  if (!raw) return;
+  sessionStorage.removeItem('hah_return_explore');
+  try {
+    const data = JSON.parse(raw);
+    teamSetup = data.team.map(e => ({
+      unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
+      activeSkillIds: new Set(e.activeSkillIds),
+    })).filter(e=>e.unit);
+    const { data: map, error } = await supabase.from('maps').select('*').eq('id', data.mapId).single();
+    if (error || !map) return;
+    currentMap = map;
+    playerX = data.x; playerY = data.y; steps = data.steps || 0;
+    document.getElementById('map-name-label').textContent = currentMap.name;
+    document.getElementById('step-count').textContent = steps;
+    switchView('view-explore');
+    renderMap();
+  } catch(err){ console.error('Rückkehr fehlgeschlagen', err); }
+}
 </script>
 </body>
 </html>
