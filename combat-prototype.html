@@ -195,6 +195,7 @@
   <section class="view" id="view-result">
     <div id="result-banner"></div>
     <div class="toolbar" style="justify-content:center;margin-top:20px;">
+      <button id="back-to-explore-btn" style="display:none;">← Zurück zum Erkunden</button>
       <button class="primary" id="restart-btn">Neuer Testkampf</button>
     </div>
   </section>
@@ -737,6 +738,8 @@ function waitForPlayerAction(actor){
 function showResult(victory){
   switchView('view-result');
   const banner = document.getElementById('result-banner');
+  const backBtn = document.getElementById('back-to-explore-btn');
+  backBtn.style.display = sessionStorage.getItem('hah_return_explore') ? 'inline-flex' : 'none';
   if (victory){
     const defeatedEnemies = battleUnits.filter(u=>u.side==='enemy');
     const totalXp = defeatedEnemies.reduce((sum,u) => {
@@ -755,6 +758,9 @@ function showResult(victory){
 
 document.getElementById('restart-btn').addEventListener('click', () => {
   switchView('view-team-setup');
+});
+document.getElementById('back-to-explore-btn').addEventListener('click', () => {
+  window.location.href = 'explore-prototype.html';
 });
 
 (async () => {
