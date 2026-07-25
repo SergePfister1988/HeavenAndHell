@@ -1157,32 +1157,85 @@ function openAttrNodeDrawer(treeType, node, allNodes, forcedRow){
 // ============================================================
 // KARTEN-EDITOR
 // ============================================================
-const TERRAIN_TYPES = [
-  {key:'gras', label:'Gras', icon:'🌿', color:'#2f5233'},
-  {key:'weg', label:'Weg', icon:'', color:'#a68a5b'},
-  {key:'wasser', label:'Wasser', icon:'', color:'#2f6f96'},
-  {key:'fels', label:'Fels', icon:'', color:'#5c5c5c'},
-  {key:'baum', label:'Baum', icon:'🌲', color:'#1f4a24'},
-  {key:'sand', label:'Sand', icon:'', color:'#cdb877'},
+const GROUND_TYPES = [
+  {key:'gras', label:'Grasland', color:'#2f5233'},
+  {key:'wueste', label:'Wüste', color:'#c9a86a'},
+  {key:'sumpf', label:'Sumpf', color:'#54613f'},
+  {key:'hoelle', label:'Höllenland', color:'#3a1a16'},
+  {key:'himmel', label:'Himmlisch', color:'#c7d0d6'},
 ];
-const TERRAIN_COLOR = Object.fromEntries(TERRAIN_TYPES.map(t=>[t.key,t.color]));
-const CONNECTABLE = ['wasser','weg'];
+const PATH_TYPES = [
+  {key:'weg', label:'Weg', color:'#a68a5b', icon:''},
+  {key:'fluss', label:'Fluss', color:'#2f6f96', icon:''},
+  {key:'lavafluss', label:'Lavafluss', color:'#c9481f', icon:''},
+  {key:'bruecke', label:'Brücke', color:'#8a6339', icon:'▤'},
+];
+const OBJECT_TYPES = [
+  {key:'berg', label:'Berg', color:'#6b6b6b', icon:'▲'},
+  {key:'baum', label:'Baum', color:'#1f4a24', icon:'🌲'},
+];
+const ERASER = {key:'none', label:'Entfernen', color:'#2a2a2a', icon:'✖'};
 
-function sameType(grid, x, y, dx, dy, w, h, type){
-  const nx=x+dx, ny=y+dy;
-  if (nx<0||ny<0||nx>=w||ny>=h) return false;
-  return (grid[ny]?.[nx] || 'gras') === type;
+const GROUND_COLOR = Object.fromEntries(GROUND_TYPES.map(t=>[t.key,t.color]));
+const PATH_COLOR = Object.fromEntries(PATH_TYPES.map(t=>[t.key,t.color]));
+const OBJECT_COLOR = Object.fromEntries(OBJECT_TYPES.map(t=>[t.key,t.color]));
+
+const WEG_GROUP = ['weg','bruecke'];
+function pathConnects(a,b){ if(!a||!b) return false; if (WEG_GROUP.includes(a)&&WEG_GROUP.includes(b)) return true; return a===b; }
+function objectConnects(a,b){ return !!a && !!b && a===b; }
+
+function connectorHtml(grid, x, y, type, color, connectFn){
+  if (!type) return '';
+  const up = connectFn(type, grid[y-1]?.[x]);
+  const down = connectFn(type, grid[y+1]?.[x]);
+  const left = connectFn(type, grid[y]?.[x-1]);
+  const right = connectFn(type, grid[y]?.[x+1]);
+  let html = `<span class="t-node" style="background:${color};"></span>`;
+  if (up) html += `<span class="t-arm up" style="background:${color};"></span>`;
+  if (down) html += `<span class="t-arm down" style="background:${color};"></span>`;
+  if (left) html += `<span class="t-arm left" style="background:${color};"></span>`;
+  if (right) html += `<span class="t-arm right" style="background:${color};"></span>`;
+  return html;
 }
 
 let currentMap = null;
-let activeLayer = 'terrain';
-let activeTerrainKey = 'gras';
+let activeLayer = 'ground';
+let activePaletteKey = 'gras';
 let isPainting = false;
 let isSettingSpawn = false;
 let allMaps = [];
 
 function emptyGrid(w, h, val){
   return Array.from({length:h}, () => Array.from({length:w}, () => val));
+}
+
+function layerDefaultKey(layer){
+  if (layer==='ground') return GROUND_TYPES[0].key;
+  if (layer==='path') return PATH_TYPES[0].key;
+  if (layer==='object') return OBJECT_TYPES[0].key;
+  return null;
+}
+function currentPaletteList(){
+  if (activeLayer==='ground') return GROUND_TYPES;
+  if (activeLayer==='path') return [...PATH_TYPES, ERASER];
+  if (activeLayer==='object') return [...OBJECT_TYPES, ERASER];
+  return [];
+}
+
+function migrateOldTerrainIfNeeded(){
+  if (Array.isArray(currentMap.ground_grid) && currentMap.ground_grid.length>0) return;
+  const w = currentMap.width, h = currentMap.height;
+  const ground = emptyGrid(w,h,'gras'), path = emptyGrid(w,h,null), object = emptyGrid(w,h,null);
+  const old = currentMap.terrain_grid || [];
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+    const t = old[y]?.[x] || 'gras';
+    if (t==='sand') ground[y][x]='wueste';
+    else if (t==='weg') path[y][x]='weg';
+    else if (t==='wasser') path[y][x]='fluss';
+    else if (t==='fels') object[y][x]='berg';
+    else if (t==='baum') object[y][x]='baum';
+  }
+  currentMap.ground_grid = ground; currentMap.path_grid = path; currentMap.object_grid = object;
 }
 
 async function loadMapsList(){
@@ -1197,7 +1250,8 @@ document.getElementById('map-select').addEventListener('change', async (e) => {
   const { data, error } = await supabase.from('maps').select('*').eq('id', e.target.value).single();
   if (error) { alert('Fehler beim Laden: ' + error.message); return; }
   currentMap = data;
-  activeLayer = 'terrain';
+  migrateOldTerrainIfNeeded();
+  activeLayer = 'ground'; activePaletteKey = 'gras';
   renderMapEditor();
 });
 document.getElementById('new-map-btn').addEventListener('click', () => {
@@ -1205,16 +1259,27 @@ document.getElementById('new-map-btn').addEventListener('click', () => {
   currentMap = {
     id: null, name: 'Neue Karte', area_tag: '', width: w, height: h, tile_size: 32,
     spawn_x: 1, spawn_y: 1, encounter_rate: 0.15,
-    terrain_grid: emptyGrid(w, h, 'gras'),
+    ground_grid: emptyGrid(w, h, 'gras'),
+    path_grid: emptyGrid(w, h, null),
+    object_grid: emptyGrid(w, h, null),
     collision_grid: emptyGrid(w, h, false),
     encounter_grid: emptyGrid(w, h, false),
   };
-  activeLayer = 'terrain';
+  activeLayer = 'ground'; activePaletteKey = 'gras';
   renderMapEditor();
 });
 
+const LAYER_HINTS = {
+  ground: 'Klicken/Ziehen: Untergrund-Biom malen (liegt als Basis unter allem).',
+  path: 'Klicken/Ziehen: Weg/Fluss/Lavafluss malen — verbindet sich automatisch mit gleichem Nachbar-Typ. Brücke macht Flüsse begehbar. "Entfernen" löscht den Weg wieder.',
+  object: 'Klicken/Ziehen: Berg/Baum platzieren — verbindet sich zu Gebirgen/Wäldern und blockiert automatisch die Bewegung.',
+  collision: 'Klicken/Ziehen: Blockiert (rot) an/aus.',
+  encounter: 'Klicken/Ziehen: Encounter-Feld (gestrichelter Rand) an/aus.',
+};
+
 function renderMapEditor(){
   const box = document.getElementById('map-editor-content');
+  const palette = currentPaletteList();
   box.innerHTML = `
     <div class="map-toolbar">
       <div class="field"><label>Name</label><input type="text" id="map-name" value="${currentMap.name}" /></div>
@@ -1226,18 +1291,18 @@ function renderMapEditor(){
     </div>
 
     <div class="layer-tabs">
-      <button class="layer-tab ${activeLayer==='terrain'?'active':''}" data-layer="terrain">🌿 Terrain</button>
+      <button class="layer-tab ${activeLayer==='ground'?'active':''}" data-layer="ground">🟩 Untergrund</button>
+      <button class="layer-tab ${activeLayer==='path'?'active':''}" data-layer="path">🌊 Wege &amp; Gewässer</button>
+      <button class="layer-tab ${activeLayer==='object'?'active':''}" data-layer="object">🌲 Objekte</button>
       <button class="layer-tab ${activeLayer==='collision'?'active':''}" data-layer="collision">🚧 Kollision</button>
       <button class="layer-tab ${activeLayer==='encounter'?'active':''}" data-layer="encounter">⚔ Encounter-Zone</button>
       <button class="layer-tab" id="spawn-mode-btn" style="margin-left:auto;">★ Startpunkt setzen</button>
     </div>
 
-    <div class="terrain-palette" id="terrain-palette" style="${activeLayer==='terrain'?'':'display:none;'}">
-      ${TERRAIN_TYPES.map(t => `<div class="palette-swatch ${t.key===activeTerrainKey?'active':''}" data-key="${t.key}" style="background:${t.color};" title="${t.label}">${t.icon}</div>`).join('')}
+    <div class="terrain-palette" id="terrain-palette" style="${palette.length?'':'display:none;'}">
+      ${palette.map(t => `<div class="palette-swatch ${t.key===activePaletteKey?'active':''}" data-key="${t.key}" style="background:${t.color};" title="${t.label}">${t.icon||''}</div>`).join('')}
     </div>
-    <p style="color:var(--muted);font-size:12px;margin:-6px 0 12px;">
-      ${activeLayer==='terrain' ? 'Klicken/Ziehen: Terrain-Typ malen.' : activeLayer==='collision' ? 'Klicken/Ziehen: Blockiert (rot schraffiert) an/aus.' : 'Klicken/Ziehen: Encounter-Feld (gestrichelter Rand) an/aus.'}
-    </p>
+    <p style="color:var(--muted);font-size:12px;margin:-6px 0 12px;">${LAYER_HINTS[activeLayer]}</p>
 
     <div class="map-scroll"><div class="map-grid" id="map-grid" style="grid-template-columns:repeat(${currentMap.width}, 20px);"></div></div>
 
@@ -1248,14 +1313,14 @@ function renderMapEditor(){
   `;
 
   document.querySelectorAll('.layer-tab[data-layer]').forEach(btn => {
-    btn.addEventListener('click', () => { activeLayer = btn.dataset.layer; isSettingSpawn = false; renderMapEditor(); });
+    btn.addEventListener('click', () => { activeLayer = btn.dataset.layer; activePaletteKey = layerDefaultKey(activeLayer); isSettingSpawn = false; renderMapEditor(); });
   });
   document.getElementById('spawn-mode-btn').addEventListener('click', () => {
     isSettingSpawn = !isSettingSpawn;
     document.getElementById('spawn-mode-btn').classList.toggle('active', isSettingSpawn);
   });
   document.querySelectorAll('.palette-swatch').forEach(sw => {
-    sw.addEventListener('click', () => { activeTerrainKey = sw.dataset.key; renderMapEditor(); });
+    sw.addEventListener('click', () => { activePaletteKey = sw.dataset.key; renderMapEditor(); });
   });
   document.getElementById('apply-size-btn').addEventListener('click', applyMapSize);
   document.getElementById('save-map-btn').addEventListener('click', saveMap);
@@ -1298,10 +1363,22 @@ function handleCellAction(x, y){
     document.getElementById('spawn-mode-btn').classList.remove('active');
     return;
   }
-  if (activeLayer==='terrain') currentMap.terrain_grid[y][x] = activeTerrainKey;
-  else if (activeLayer==='collision') currentMap.collision_grid[y][x] = !currentMap.collision_grid[y][x];
-  else if (activeLayer==='encounter') currentMap.encounter_grid[y][x] = !currentMap.encounter_grid[y][x];
-  // Diese Zelle und alle direkten Nachbarn neu zeichnen (Auto-Tiling-Verbindungen können sich ändern)
+  if (activeLayer==='ground'){
+    currentMap.ground_grid[y][x] = activePaletteKey;
+  } else if (activeLayer==='path'){
+    const key = activePaletteKey==='none' ? null : activePaletteKey;
+    currentMap.path_grid[y][x] = key;
+    if (key==='weg' || key==='bruecke') currentMap.collision_grid[y][x] = false;
+    else if (key==='fluss' || key==='lavafluss') currentMap.collision_grid[y][x] = true;
+  } else if (activeLayer==='object'){
+    const key = activePaletteKey==='none' ? null : activePaletteKey;
+    currentMap.object_grid[y][x] = key;
+    if (key==='berg' || key==='baum') currentMap.collision_grid[y][x] = true;
+  } else if (activeLayer==='collision'){
+    currentMap.collision_grid[y][x] = !currentMap.collision_grid[y][x];
+  } else if (activeLayer==='encounter'){
+    currentMap.encounter_grid[y][x] = !currentMap.encounter_grid[y][x];
+  }
   updateCellVisual(x, y);
   [[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dy]) => updateCellVisual(x+dx, y+dy));
 }
@@ -1310,24 +1387,18 @@ function updateCellVisual(x, y){
   if (x<0 || y<0 || x>=currentMap.width || y>=currentMap.height) return;
   const cell = document.querySelector(`.map-cell[data-x="${x}"][data-y="${y}"]`);
   if (!cell) return;
-  const type = currentMap.terrain_grid[y][x] || 'gras';
   cell.classList.toggle('blocked', !!currentMap.collision_grid[y][x]);
   cell.classList.toggle('encounter', !!currentMap.encounter_grid[y][x]);
   cell.classList.toggle('spawn', currentMap.spawn_x===x && currentMap.spawn_y===y);
 
-  if (!CONNECTABLE.includes(type)){
-    cell.style.background = TERRAIN_COLOR[type] || TERRAIN_COLOR.gras;
-    cell.innerHTML = '';
-    return;
-  }
-  const color = TERRAIN_COLOR[type];
-  const w = currentMap.width, h = currentMap.height, grid = currentMap.terrain_grid;
-  cell.style.background = TERRAIN_COLOR.gras;
-  let inner = `<span class="t-node" style="background:${color};"></span>`;
-  if (sameType(grid,x,y,0,-1,w,h,type)) inner += `<span class="t-arm up" style="background:${color};"></span>`;
-  if (sameType(grid,x,y,0,1,w,h,type)) inner += `<span class="t-arm down" style="background:${color};"></span>`;
-  if (sameType(grid,x,y,-1,0,w,h,type)) inner += `<span class="t-arm left" style="background:${color};"></span>`;
-  if (sameType(grid,x,y,1,0,w,h,type)) inner += `<span class="t-arm right" style="background:${color};"></span>`;
+  const groundType = currentMap.ground_grid[y][x] || 'gras';
+  cell.style.background = GROUND_COLOR[groundType] || GROUND_COLOR.gras;
+
+  const pathType = currentMap.path_grid[y][x];
+  const objType = currentMap.object_grid[y][x];
+  let inner = '';
+  if (pathType) inner += connectorHtml(currentMap.path_grid, x, y, pathType, PATH_COLOR[pathType], pathConnects);
+  if (objType) inner += connectorHtml(currentMap.object_grid, x, y, objType, OBJECT_COLOR[objType], objectConnects);
   cell.innerHTML = inner;
 }
 
@@ -1341,7 +1412,9 @@ function applyMapSize(){
         out[y][x] = grid[y][x];
     return out;
   };
-  currentMap.terrain_grid = resize(currentMap.terrain_grid, 'gras');
+  currentMap.ground_grid = resize(currentMap.ground_grid, 'gras');
+  currentMap.path_grid = resize(currentMap.path_grid, null);
+  currentMap.object_grid = resize(currentMap.object_grid, null);
   currentMap.collision_grid = resize(currentMap.collision_grid, false);
   currentMap.encounter_grid = resize(currentMap.encounter_grid, false);
   currentMap.width = newW; currentMap.height = newH;
@@ -1358,7 +1431,8 @@ async function saveMap(){
   const payload = {
     name: currentMap.name, area_tag: currentMap.area_tag, width: currentMap.width, height: currentMap.height,
     tile_size: currentMap.tile_size, spawn_x: currentMap.spawn_x, spawn_y: currentMap.spawn_y,
-    encounter_rate: currentMap.encounter_rate, terrain_grid: currentMap.terrain_grid,
+    encounter_rate: currentMap.encounter_rate,
+    ground_grid: currentMap.ground_grid, path_grid: currentMap.path_grid, object_grid: currentMap.object_grid,
     collision_grid: currentMap.collision_grid, encounter_grid: currentMap.encounter_grid,
   };
   if (currentMap.id){

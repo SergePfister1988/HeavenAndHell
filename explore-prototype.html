@@ -112,33 +112,58 @@ const SUPABASE_URL = 'https://mcdjyzewmppfrmzhkmrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_PAGzKtZZvjorx4Bs9S2LcA_UDFu6Smq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
-const TERRAIN_COLOR = { gras:'#2f5233', weg:'#a68a5b', wasser:'#2f6f96', fels:'#5c5c5c', baum:'#1f4a24', sand:'#cdb877' };
-const CONNECTABLE = ['wasser','weg'];
+const GROUND_COLOR = { gras:'#2f5233', wueste:'#c9a86a', sumpf:'#54613f', hoelle:'#3a1a16', himmel:'#c7d0d6' };
+const PATH_COLOR = { weg:'#a68a5b', fluss:'#2f6f96', lavafluss:'#c9481f', bruecke:'#8a6339' };
+const OBJECT_COLOR = { berg:'#6b6b6b', baum:'#1f4a24' };
+const WEG_GROUP = ['weg','bruecke'];
 const TILE_PX = 24;
 
-function sameType(grid, x, y, dx, dy, w, h, type){
-  const nx=x+dx, ny=y+dy;
-  if (nx<0||ny<0||nx>=w||ny>=h) return false;
-  return (grid[ny]?.[nx] || 'gras') === type;
+function pathConnects(a,b){ if(!a||!b) return false; if (WEG_GROUP.includes(a)&&WEG_GROUP.includes(b)) return true; return a===b; }
+function objectConnects(a,b){ return !!a && !!b && a===b; }
+
+function connectorHtml(grid, x, y, type, color, connectFn){
+  if (!type) return '';
+  const up = connectFn(type, grid[y-1]?.[x]);
+  const down = connectFn(type, grid[y+1]?.[x]);
+  const left = connectFn(type, grid[y]?.[x-1]);
+  const right = connectFn(type, grid[y]?.[x+1]);
+  let html = `<span class="t-node" style="background:${color};"></span>`;
+  if (up) html += `<span class="t-arm up" style="background:${color};"></span>`;
+  if (down) html += `<span class="t-arm down" style="background:${color};"></span>`;
+  if (left) html += `<span class="t-arm left" style="background:${color};"></span>`;
+  if (right) html += `<span class="t-arm right" style="background:${color};"></span>`;
+  return html;
 }
 
-function tileHtml(grid, x, y, w, h){
-  const type = grid[y]?.[x] || 'gras';
-  if (!CONNECTABLE.includes(type)){
-    return { bg: TERRAIN_COLOR[type] || TERRAIN_COLOR.gras, inner: '' };
+// Alte Karten (nur terrain_grid, kein ground/path/object) automatisch umwandeln
+function migrateMapIfNeeded(map){
+  if (Array.isArray(map.ground_grid) && map.ground_grid.length>0) return map;
+  const w = map.width, h = map.height;
+  const ground = Array.from({length:h},()=>Array.from({length:w},()=>'gras'));
+  const path = Array.from({length:h},()=>Array.from({length:w},()=>null));
+  const object = Array.from({length:h},()=>Array.from({length:w},()=>null));
+  const old = map.terrain_grid || [];
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+    const t = old[y]?.[x] || 'gras';
+    if (t==='sand') ground[y][x]='wueste';
+    else if (t==='weg') path[y][x]='weg';
+    else if (t==='wasser') path[y][x]='fluss';
+    else if (t==='fels') object[y][x]='berg';
+    else if (t==='baum') object[y][x]='baum';
   }
-  const color = TERRAIN_COLOR[type];
-  const up = sameType(grid,x,y,0,-1,w,h,type);
-  const down = sameType(grid,x,y,0,1,w,h,type);
-  const left = sameType(grid,x,y,-1,0,w,h,type);
-  const right = sameType(grid,x,y,1,0,w,h,type);
-  let inner = `<span class="t-node" style="background:${color};"></span>`;
-  if (up) inner += `<span class="t-arm up" style="background:${color};"></span>`;
-  if (down) inner += `<span class="t-arm down" style="background:${color};"></span>`;
-  if (left) inner += `<span class="t-arm left" style="background:${color};"></span>`;
-  if (right) inner += `<span class="t-arm right" style="background:${color};"></span>`;
-  inner += `<span class="t-shine"></span>`;
-  return { bg: TERRAIN_COLOR.gras, inner }; // Fluss/Weg liegt "auf" dem Grasboden
+  map.ground_grid = ground; map.path_grid = path; map.object_grid = object;
+  return map;
+}
+
+function tileHtml(map, x, y){
+  const groundType = map.ground_grid[y]?.[x] || 'gras';
+  const bg = GROUND_COLOR[groundType] || GROUND_COLOR.gras;
+  const pathType = map.path_grid[y]?.[x];
+  const objType = map.object_grid[y]?.[x];
+  let inner = '';
+  if (pathType) inner += connectorHtml(map.path_grid, x, y, pathType, PATH_COLOR[pathType], pathConnects) + `<span class="t-shine"></span>`;
+  if (objType) inner += connectorHtml(map.object_grid, x, y, objType, OBJECT_COLOR[objType], objectConnects);
+  return { bg, inner };
 }
 
 let UNITS = [], MAPS = [];
@@ -199,7 +224,7 @@ document.getElementById('start-explore-btn').addEventListener('click', async () 
   if (!mapId){ alert('Keine Karte gewählt.'); return; }
   const { data, error } = await supabase.from('maps').select('*').eq('id', mapId).single();
   if (error) { alert('Fehler beim Laden der Karte: ' + error.message); return; }
-  currentMap = data;
+  currentMap = migrateMapIfNeeded(data);
   playerX = currentMap.spawn_x; playerY = currentMap.spawn_y; steps = 0;
   document.getElementById('map-name-label').textContent = currentMap.name;
   document.getElementById('step-count').textContent = steps;
@@ -217,7 +242,7 @@ function renderMap(){
     for (let x=0; x<currentMap.width; x++){
       const blocked = !!currentMap.collision_grid[y]?.[x];
       const enc = !!currentMap.encounter_grid[y]?.[x];
-      const { bg, inner } = tileHtml(currentMap.terrain_grid, x, y, currentMap.width, currentMap.height);
+      const { bg, inner } = tileHtml(currentMap, x, y);
       cells.push(`<div class="tile" data-x="${x}" data-y="${y}" style="width:${TILE_PX}px;height:${TILE_PX}px;background:${bg};${blocked?'box-shadow:inset 0 0 0 1px rgba(165,71,58,.7);':''}${enc?'outline:1px dashed rgba(224,184,74,.7);outline-offset:-2px;':''}">${inner}</div>`);
     }
   }
@@ -289,7 +314,7 @@ async function tryResumeExplore(){
     })).filter(e=>e.unit);
     const { data: map, error } = await supabase.from('maps').select('*').eq('id', data.mapId).single();
     if (error || !map) return;
-    currentMap = map;
+    currentMap = migrateMapIfNeeded(map);
     playerX = data.x; playerY = data.y; steps = data.steps || 0;
     document.getElementById('map-name-label').textContent = currentMap.name;
     document.getElementById('step-count').textContent = steps;
