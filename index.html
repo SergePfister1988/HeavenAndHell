@@ -190,6 +190,14 @@
   .map-cell .t-arm.down{left:22%; top:44%; width:56%; height:56%;}
   .map-cell .t-arm.left{left:0; top:22%; width:56%; height:56%;}
   .map-cell .t-arm.right{left:44%; top:22%; width:56%; height:56%;}
+  .tile-img{position:absolute; inset:0; background-size:cover; background-position:center; image-rendering:pixelated; z-index:2;}
+  .tileset-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:16px;}
+  .tileset-panel h4{margin:0 0 10px; font-size:13px; color:var(--gold);}
+  .shape-slots{display:flex; gap:10px; flex-wrap:wrap;}
+  .shape-slot{display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .shape-thumb{width:40px; height:40px; border-radius:5px; border:1px solid var(--line); background:var(--surface-2); background-size:cover; background-position:center; image-rendering:pixelated; display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--muted); cursor:pointer; position:relative; overflow:hidden;}
+  .shape-slot label{font-size:9px; color:var(--muted); text-transform:uppercase;}
+  .shape-slot input[type=file]{display:none;}
   .map-scroll{overflow:auto; max-width:100%; border-radius:6px;}
   .start-skills-box h3{font-size:14px; color:var(--gold); margin:0 0 12px;}
   .skill-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
@@ -425,7 +433,7 @@ document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if (btn.dataset.view === 'attrtree') renderAttributeTree();
-    if (btn.dataset.view === 'maps') loadMapsList();
+    if (btn.dataset.view === 'maps') { loadMapsList(); loadTilesets(); }
   });
 });
 
@@ -1199,6 +1207,50 @@ function connectorHtml(grid, x, y, type, color, connectFn){
 }
 
 let currentMap = null;
+let TILESETS = {}; // key "layer:type:shape" -> image_url
+
+async function loadTilesets(){
+  const { data } = await supabase.from('tilesets').select('*');
+  TILESETS = {};
+  (data||[]).forEach(t => { TILESETS[`${t.layer}:${t.type_key}:${t.shape}`] = t.image_url; });
+}
+
+function computeShapeRotation(up, down, left, right){
+  const count = [up,down,left,right].filter(Boolean).length;
+  if (count===0) return {shape:'isolated', rot:0};
+  if (count===4) return {shape:'cross', rot:0};
+  if (count===1){
+    if (down) return {shape:'end', rot:0};
+    if (right) return {shape:'end', rot:90};
+    if (up) return {shape:'end', rot:180};
+    return {shape:'end', rot:270}; // left
+  }
+  if (count===2){
+    if (up&&down) return {shape:'straight', rot:0};
+    if (left&&right) return {shape:'straight', rot:90};
+    if (down&&right) return {shape:'corner', rot:0};
+    if (down&&left) return {shape:'corner', rot:90};
+    if (up&&left) return {shape:'corner', rot:180};
+    return {shape:'corner', rot:270}; // up&&right
+  }
+  // count===3
+  if (!up) return {shape:'t', rot:0};
+  if (!right) return {shape:'t', rot:90};
+  if (!down) return {shape:'t', rot:180};
+  return {shape:'t', rot:270}; // !left
+}
+
+async function uploadTileImage(file, layer, typeKey, shape){
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${layer}-${typeKey}-${shape}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('tile-assets').upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('tile-assets').getPublicUrl(path);
+  const url = data.publicUrl;
+  await supabase.from('tilesets').upsert({ layer, type_key: typeKey, shape, image_url: url }, { onConflict: 'layer,type_key,shape' });
+  TILESETS[`${layer}:${typeKey}:${shape}`] = url;
+  return url;
+}
 let activeLayer = 'ground';
 let activePaletteKey = 'gras';
 let isPainting = false;
@@ -1277,6 +1329,35 @@ const LAYER_HINTS = {
   encounter: 'Klicken/Ziehen: Encounter-Feld (gestrichelter Rand) an/aus.',
 };
 
+function shapesFor(layer, typeKey){
+  if (layer==='ground') return ['single'];
+  if (layer==='path') return typeKey==='bruecke' ? ['horizontal','vertical'] : ['isolated','end','straight','corner','t','cross'];
+  if (layer==='object') return ['isolated','end','straight','corner','t','cross'];
+  return [];
+}
+
+function tilesetPanelHtml(){
+  if (!['ground','path','object'].includes(activeLayer) || activePaletteKey==='none') return '';
+  const shapes = shapesFor(activeLayer, activePaletteKey);
+  const typeLabel = currentPaletteList().find(t=>t.key===activePaletteKey)?.label || activePaletteKey;
+  return `
+    <div class="tileset-panel">
+      <h4>🖼 Kachel-Grafiken: ${typeLabel}</h4>
+      <div class="shape-slots">
+        ${shapes.map(shape => {
+          const url = TILESETS[`${activeLayer}:${activePaletteKey}:${shape}`];
+          return `
+          <div class="shape-slot">
+            <div class="shape-thumb" data-shape="${shape}" style="${url?`background-image:url('${url}');`:''}">${url?'':shape}</div>
+            <label>${shape}</label>
+            <input type="file" accept="image/*" data-shape-input="${shape}" />
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderMapEditor(){
   const box = document.getElementById('map-editor-content');
   const palette = currentPaletteList();
@@ -1303,6 +1384,7 @@ function renderMapEditor(){
       ${palette.map(t => `<div class="palette-swatch ${t.key===activePaletteKey?'active':''}" data-key="${t.key}" style="background:${t.color};" title="${t.label}">${t.icon||''}</div>`).join('')}
     </div>
     <p style="color:var(--muted);font-size:12px;margin:-6px 0 12px;">${LAYER_HINTS[activeLayer]}</p>
+    ${tilesetPanelHtml()}
 
     <div class="map-scroll"><div class="map-grid" id="map-grid" style="grid-template-columns:repeat(${currentMap.width}, 20px);"></div></div>
 
@@ -1311,6 +1393,22 @@ function renderMapEditor(){
       ${currentMap.id ? '<button class="danger" id="delete-map-btn">Löschen</button>' : ''}
     </div>
   `;
+
+  document.querySelectorAll('.shape-thumb').forEach(thumb => {
+    const shape = thumb.dataset.shape;
+    const input = thumb.parentElement.querySelector(`input[data-shape-input="${shape}"]`);
+    thumb.addEventListener('click', () => input.click());
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        await uploadTileImage(file, activeLayer, activePaletteKey, shape);
+        renderMapEditor();
+      } catch (err) {
+        alert('Fehler beim Hochladen: ' + err.message);
+      }
+    });
+  });
 
   document.querySelectorAll('.layer-tab[data-layer]').forEach(btn => {
     btn.addEventListener('click', () => { activeLayer = btn.dataset.layer; activePaletteKey = layerDefaultKey(activeLayer); isSettingSpawn = false; renderMapEditor(); });
@@ -1392,14 +1490,37 @@ function updateCellVisual(x, y){
   cell.classList.toggle('spawn', currentMap.spawn_x===x && currentMap.spawn_y===y);
 
   const groundType = currentMap.ground_grid[y][x] || 'gras';
-  cell.style.background = GROUND_COLOR[groundType] || GROUND_COLOR.gras;
+  const groundUrl = TILESETS[`ground:${groundType}:single`];
+  cell.style.background = groundUrl ? `url('${groundUrl}')` : (GROUND_COLOR[groundType] || GROUND_COLOR.gras);
+  cell.style.backgroundSize = 'cover';
+  cell.style.imageRendering = groundUrl ? 'pixelated' : '';
 
   const pathType = currentMap.path_grid[y][x];
   const objType = currentMap.object_grid[y][x];
   let inner = '';
-  if (pathType) inner += connectorHtml(currentMap.path_grid, x, y, pathType, PATH_COLOR[pathType], pathConnects);
-  if (objType) inner += connectorHtml(currentMap.object_grid, x, y, objType, OBJECT_COLOR[objType], objectConnects);
+  inner += layerVisualHtml('path', pathType, currentMap.path_grid, x, y, PATH_COLOR, pathConnects);
+  inner += layerVisualHtml('object', objType, currentMap.object_grid, x, y, OBJECT_COLOR, objectConnects);
   cell.innerHTML = inner;
+}
+
+function layerVisualHtml(layer, type, grid, x, y, colorMap, connectFn){
+  if (!type) return '';
+  if (type==='bruecke'){
+    const left = connectFn(type, grid[y]?.[x-1]);
+    const right = connectFn(type, grid[y]?.[x+1]);
+    const shape = (left||right) ? 'horizontal' : 'vertical';
+    const url = TILESETS[`path:bruecke:${shape}`];
+    if (url) return `<div class="tile-img" style="background-image:url('${url}');"></div>`;
+    return `<span class="t-node" style="background:${colorMap.bruecke};"></span>`;
+  }
+  const up = connectFn(type, grid[y-1]?.[x]);
+  const down = connectFn(type, grid[y+1]?.[x]);
+  const left = connectFn(type, grid[y]?.[x-1]);
+  const right = connectFn(type, grid[y]?.[x+1]);
+  const {shape, rot} = computeShapeRotation(up, down, left, right);
+  const url = TILESETS[`${layer}:${type}:${shape}`];
+  if (url) return `<div class="tile-img" style="background-image:url('${url}'); transform:rotate(${rot}deg);"></div>`;
+  return connectorHtml(grid, x, y, type, colorMap[type], connectFn);
 }
 
 function applyMapSize(){
