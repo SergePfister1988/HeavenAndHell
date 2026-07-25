@@ -760,7 +760,28 @@ document.getElementById('restart-btn').addEventListener('click', () => {
 (async () => {
   await loadAll();
   initSetupScreens();
+  tryLoadHandoff();
 })();
+
+function tryLoadHandoff(){
+  const raw = sessionStorage.getItem('hah_handoff');
+  if (!raw) return;
+  sessionStorage.removeItem('hah_handoff');
+  try {
+    const data = JSON.parse(raw);
+    teamSetup = data.team.map(e => ({
+      unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
+      activeSkillIds: new Set(e.activeSkillIds),
+    })).filter(e=>e.unit);
+    enemySetup = data.enemies.map(e => ({
+      unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
+      activeSkillIds: new Set(e.activeSkillIds),
+    })).filter(e=>e.unit);
+    if (teamSetup.length && enemySetup.length){
+      document.getElementById('start-battle-btn').click();
+    }
+  } catch(err){ console.error('Handoff fehlgeschlagen', err); }
+}
 </script>
 </body>
 </html>
