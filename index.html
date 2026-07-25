@@ -181,9 +181,15 @@
   .palette-swatch.active{border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-soft);}
   .map-grid{display:grid; border:1px solid var(--line); width:max-content; user-select:none; background:#000;}
   .map-cell{width:20px; height:20px; box-sizing:border-box; border:1px solid rgba(0,0,0,.25); cursor:pointer; position:relative;}
-  .map-cell.spawn::after{content:'★'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; text-shadow:0 0 2px #000;}
-  .map-cell.blocked::before{content:''; position:absolute; inset:0; background:repeating-linear-gradient(45deg, rgba(165,71,58,.6) 0 3px, transparent 3px 6px);}
-  .map-cell.encounter::after{content:''; position:absolute; inset:3px; border:1.5px dashed rgba(224,184,74,.9); border-radius:2px;}
+  .map-cell.spawn::after{content:'★'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; text-shadow:0 0 2px #000; z-index:6;}
+  .map-cell.blocked{box-shadow:inset 0 0 0 1px rgba(165,71,58,.85);}
+  .map-cell.encounter{outline:1.5px dashed rgba(224,184,74,.9); outline-offset:-2px;}
+  .map-cell .t-node{position:absolute; left:22%; top:22%; width:56%; height:56%; border-radius:30%; z-index:1;}
+  .map-cell .t-arm{position:absolute; z-index:1;}
+  .map-cell .t-arm.up{left:22%; top:0; width:56%; height:56%;}
+  .map-cell .t-arm.down{left:22%; top:44%; width:56%; height:56%;}
+  .map-cell .t-arm.left{left:0; top:22%; width:56%; height:56%;}
+  .map-cell .t-arm.right{left:44%; top:22%; width:56%; height:56%;}
   .map-scroll{overflow:auto; max-width:100%; border-radius:6px;}
   .start-skills-box h3{font-size:14px; color:var(--gold); margin:0 0 12px;}
   .skill-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
@@ -1160,6 +1166,13 @@ const TERRAIN_TYPES = [
   {key:'sand', label:'Sand', icon:'', color:'#cdb877'},
 ];
 const TERRAIN_COLOR = Object.fromEntries(TERRAIN_TYPES.map(t=>[t.key,t.color]));
+const CONNECTABLE = ['wasser','weg'];
+
+function sameType(grid, x, y, dx, dy, w, h, type){
+  const nx=x+dx, ny=y+dy;
+  if (nx<0||ny<0||nx>=w||ny>=h) return false;
+  return (grid[ny]?.[nx] || 'gras') === type;
+}
 
 let currentMap = null;
 let activeLayer = 'terrain';
@@ -1288,16 +1301,34 @@ function handleCellAction(x, y){
   if (activeLayer==='terrain') currentMap.terrain_grid[y][x] = activeTerrainKey;
   else if (activeLayer==='collision') currentMap.collision_grid[y][x] = !currentMap.collision_grid[y][x];
   else if (activeLayer==='encounter') currentMap.encounter_grid[y][x] = !currentMap.encounter_grid[y][x];
+  // Diese Zelle und alle direkten Nachbarn neu zeichnen (Auto-Tiling-Verbindungen können sich ändern)
   updateCellVisual(x, y);
+  [[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dy]) => updateCellVisual(x+dx, y+dy));
 }
 
 function updateCellVisual(x, y){
+  if (x<0 || y<0 || x>=currentMap.width || y>=currentMap.height) return;
   const cell = document.querySelector(`.map-cell[data-x="${x}"][data-y="${y}"]`);
   if (!cell) return;
-  cell.style.background = TERRAIN_COLOR[currentMap.terrain_grid[y][x]] || '#2f5233';
+  const type = currentMap.terrain_grid[y][x] || 'gras';
   cell.classList.toggle('blocked', !!currentMap.collision_grid[y][x]);
   cell.classList.toggle('encounter', !!currentMap.encounter_grid[y][x]);
   cell.classList.toggle('spawn', currentMap.spawn_x===x && currentMap.spawn_y===y);
+
+  if (!CONNECTABLE.includes(type)){
+    cell.style.background = TERRAIN_COLOR[type] || TERRAIN_COLOR.gras;
+    cell.innerHTML = '';
+    return;
+  }
+  const color = TERRAIN_COLOR[type];
+  const w = currentMap.width, h = currentMap.height, grid = currentMap.terrain_grid;
+  cell.style.background = TERRAIN_COLOR.gras;
+  let inner = `<span class="t-node" style="background:${color};"></span>`;
+  if (sameType(grid,x,y,0,-1,w,h,type)) inner += `<span class="t-arm up" style="background:${color};"></span>`;
+  if (sameType(grid,x,y,0,1,w,h,type)) inner += `<span class="t-arm down" style="background:${color};"></span>`;
+  if (sameType(grid,x,y,-1,0,w,h,type)) inner += `<span class="t-arm left" style="background:${color};"></span>`;
+  if (sameType(grid,x,y,1,0,w,h,type)) inner += `<span class="t-arm right" style="background:${color};"></span>`;
+  cell.innerHTML = inner;
 }
 
 function applyMapSize(){
