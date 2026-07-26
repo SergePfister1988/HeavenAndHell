@@ -205,7 +205,7 @@
   <!-- ================= SETUP: ENEMY ================= -->
   <section class="view" id="view-enemy-setup">
     <h2>2. Gegner zusammenstellen</h2>
-    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 15 Einheiten (Helden oder Monster) — sie werden automatisch in 3 Wellen à 5 aufgeteilt (Reihenfolge = Wellen-Zuordnung).</p>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 16 Einheiten (Helden oder Monster) — sie werden automatisch in Wellen à 4 aufgeteilt (Reihenfolge = Wellen-Zuordnung).</p>
     <div class="toolbar" id="enemy-filter-bar">
       <select id="enemy-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="enemy-filter-class"><option value="all">Alle Klassen</option></select>
@@ -429,7 +429,7 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
   box.innerHTML = arr.map((entry,idx) => {
     const learnable = (LEARNABLE[entry.unit.id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)}))
       .filter(l => l.skill && l.unlock_level<=entry.level && l.required_star_level<=entry.star);
-    const waveTag = showWave ? `<span style="font-size:10px;color:var(--gold);border:1px solid var(--line);border-radius:100px;padding:2px 8px;">Welle ${Math.floor(idx/5)+1}</span>` : '';
+    const waveTag = showWave ? `<span style="font-size:10px;color:var(--gold);border:1px solid var(--line);border-radius:100px;padding:2px 8px;">Welle ${Math.floor(idx/4)+1}</span>` : '';
     return `
     <div class="roster-row" data-idx="${idx}">
       <span class="rname">${entry.unit.name}</span>
@@ -474,7 +474,7 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
 function initSetupScreens(){
   const heroes = heroOptions();
   populateFilterSelects('hero', heroes);
-  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 5, rerenderTeamRoster); }
+  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 4, rerenderTeamRoster); }
   function rerenderTeamRoster(){ renderRoster('team-roster-list', teamSetup, rerenderTeamGrid); }
   ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
     document.getElementById(id).addEventListener('change', rerenderTeamGrid);
@@ -484,7 +484,7 @@ function initSetupScreens(){
 
   const enemies = enemyOptions();
   populateFilterSelects('enemy', enemies);
-  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 15, rerenderEnemyRoster); }
+  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 16, rerenderEnemyRoster); }
   function rerenderEnemyRoster(){ renderRoster('enemy-roster-list', enemySetup, rerenderEnemyGrid, true); }
   ['enemy-filter-element','enemy-filter-class','enemy-filter-rarity'].forEach(id => {
     document.getElementById(id).addEventListener('change', rerenderEnemyGrid);
@@ -557,7 +557,7 @@ document.getElementById('speed-toggle').addEventListener('click', () => {
 document.getElementById('start-battle-btn').addEventListener('click', () => {
   if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
   waveChunks = [];
-  for (let i=0; i<enemySetup.length; i+=5) waveChunks.push(enemySetup.slice(i, i+5));
+  for (let i=0; i<enemySetup.length; i+=4) waveChunks.push(enemySetup.slice(i, i+4));
   currentWaveIndex = 0;
   battleUnits = [
     ...teamSetup.map(e=>buildBattleUnit(e,'player')),
