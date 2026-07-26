@@ -2,135 +2,251 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Himmel und Hölle — Erkunden-Prototyp</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Himmel und Hölle — Kampf-Prototyp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#17150f; --surface:#211e17; --surface-2:#2b271d; --surface-3:#38321f;
     --line:#4a4230; --text:#ece4d2; --muted:#9c9080; --gold:#c9a24b; --gold-soft:#8f7838;
+    --hp:#a5473a; --hp-bar:#7a3229; --mp:#3d7ea6; --ok:#5f8f5a; --danger:#a5473a;
   }
   *{box-sizing:border-box;}
-  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; overscroll-behavior:none;}
-  h1,h2{font-family:'Cinzel',serif;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;}
+  h1,h2,h3{font-family:'Cinzel',serif;}
   .mono{font-family:'JetBrains Mono',monospace;}
-  header{padding:14px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
-  header h1{margin:0; font-size:16px; color:var(--gold);}
-  main{max-width:520px; margin:0 auto; padding:16px;}
+  header{padding:16px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-size:18px; color:var(--gold);}
+  main{max-width:1100px; margin:0 auto; padding:20px 24px 80px;}
   .view{display:none;}
   .view.active{display:block;}
-  button{font-family:'Inter',sans-serif; font-weight:600; font-size:13px; cursor:pointer; border-radius:6px; border:1px solid var(--line); background:var(--surface-3); color:var(--text); padding:9px 14px;}
+  button{font-family:'Inter',sans-serif; font-weight:600; font-size:13px; cursor:pointer; border-radius:6px; border:1px solid var(--line); background:var(--surface-3); color:var(--text); padding:8px 14px;}
+  button:hover:not(:disabled){border-color:var(--gold-soft);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
   button.primary{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
-  select{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; width:100%;}
+  button.primary:hover:not(:disabled){background:var(--gold);}
+  select, input{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:6px 8px; font-family:'Inter',sans-serif;}
 
-  .card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:16px;}
-  .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:9px; cursor:pointer; font-size:12.5px;}
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:20px;}
+  .unit-pick-card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer;}
+  .unit-pick-card:hover{border-color:var(--gold-soft);}
   .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
-  .upthumb{width:100%; height:50px; border-radius:6px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:6px; overflow:hidden;}
+  .upthumb{width:100%; height:56px; border-radius:6px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:6px; overflow:hidden;}
   .upthumb img{width:100%; height:100%; object-fit:cover; object-position:top;}
+  .upname{font-weight:600; font-size:12.5px;}
   .upbadges{display:flex; gap:4px; margin:4px 0; flex-wrap:wrap;}
   .up-badge{font-size:9px; font-weight:700; color:#1a1712; border-radius:100px; padding:1px 7px;}
   .up-badge.rarity{background:var(--surface-3); color:var(--muted);}
-  .toolbar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
-  #hero-filter-bar select{width:auto; flex:1; min-width:100px;}
+  .upmeta{font-size:11.5px; color:var(--muted); margin-top:2px;}
 
-  .status-bar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:12.5px; color:var(--muted);}
-  .status-bar strong{color:var(--gold);}
+  .roster-list{display:flex; flex-direction:column; gap:10px; margin-bottom:20px;}
+  .roster-row{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .roster-row .rname{font-weight:600; min-width:140px;}
+  .roster-row label{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;}
+  .roster-row input[type=number]{width:56px;}
+  .skill-toggle{display:flex; gap:6px; flex-wrap:wrap;}
+  .skill-chip{font-size:11px; padding:3px 8px; border-radius:100px; border:1px solid var(--line); background:var(--surface-2); cursor:pointer;}
+  .skill-chip.on{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
 
-  .map-wrap{overflow:auto; border:1px solid var(--line); border-radius:10px; background:#000; max-height:70vh;}
-  .dpad{position:fixed; bottom:20px; right:20px; z-index:40; display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); gap:4px;}
-  .dpad-btn{font-size:20px; border-radius:10px; background:rgba(43,39,29,.9); border:1px solid var(--line); color:var(--gold); display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation;}
-  .dpad-btn:active{background:var(--gold-soft); color:#1a1712;}
-  .dpad-btn.dpad-up{grid-column:2; grid-row:1;}
-  .dpad-btn.dpad-left{grid-column:1; grid-row:2;}
-  .dpad-btn.dpad-center{grid-column:2; grid-row:2; background:transparent; border:none; cursor:default;}
-  .dpad-btn.dpad-right{grid-column:3; grid-row:2;}
-  .dpad-btn.dpad-down{grid-column:2; grid-row:3;}
-  .map-grid{display:grid; position:relative;}
-  .tile{position:relative;}
-  .tile{position:relative;}
-  .t-node{position:absolute; left:28%; top:28%; width:44%; height:44%; border-radius:35%; z-index:1;}
-  .t-arm{position:absolute; z-index:1;}
-  .t-arm.up{left:28%; top:0; width:44%; height:56%;}
-  .t-arm.down{left:28%; top:44%; width:44%; height:56%;}
-  .t-arm.left{left:0; top:28%; width:56%; height:44%;}
-  .t-arm.right{left:44%; top:28%; width:56%; height:44%;}
-  .t-shine{position:absolute; inset:0; background:linear-gradient(160deg, rgba(255,255,255,.16), transparent 55%); z-index:2; pointer-events:none;}
-  .tile-img{position:absolute; inset:0; background-size:cover; background-position:center; image-rendering:pixelated; z-index:2;}
-  .player-token{
-    position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center;
-    font-size:22px; filter:drop-shadow(0 0 3px #000); transition: left .15s ease, top .15s ease; pointer-events:none; z-index:5;
+  .arena{
+    position:relative; background:linear-gradient(180deg,#16261c 0%,#0f1a14 100%); border:2px solid #0a120d;
+    border-radius:10px; padding:18px 10px 14px; margin-bottom:16px; overflow:hidden;
+  }
+  .road{
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(0deg, #1c2f21 0 20px, #223a28 20px 40px);
+    clip-path: polygon(30% 0%, 70% 0%, 96% 100%, 4% 100%);
+  }
+  .lane-row{position:relative; z-index:2; display:flex; flex-direction:column; gap:6px; padding:6px 0;}
+  .sub-row{display:flex; justify-content:center; gap:10px; flex-wrap:wrap;}
+  .pos-badge{font-size:7px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:0 5px; margin-top:2px; display:inline-block;}
+  .pos-badge.front{color:var(--gold); border-color:var(--gold-soft);}
+  .unit-slot{display:flex; flex-direction:column; align-items:center; width:88px;}
+  .enemy-row .unit-slot{width:74px;}
+  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center;}
+  .level-badge{font-size:8px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 5px; flex-shrink:0;}
+  .u-barwrap{width:80px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; margin-top:3px; position:relative;}
+  .enemy-row .u-barwrap{width:66px; height:9px;}
+  .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
+  .u-barfill.hp{background:var(--hp, #4caf50);}
+  .u-barfill.hp.low{background:#c94a3a;}
+  .u-barnum{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:7.5px; font-weight:700; color:#fff; text-shadow:1px 1px 0 rgba(0,0,0,.8);}
+
+  .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
+  .enemy-row .sprite-wrap{width:42px; height:42px;}
+  .shadow{position:absolute; bottom:-3px; width:60%; height:8px; background:rgba(0,0,0,.5); border-radius:50%; filter:blur(1.5px);}
+  .sprite{
+    width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px;
+    animation: idle 1.8s ease-in-out infinite; box-shadow:0 0 0 2px #000 inset, 0 3px 0 rgba(0,0,0,.4); position:relative;
+  }
+  .enemy-row .sprite{font-size:18px;}
+  .hero-row .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
+  .enemy-row .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
+  .unit-slot.dead .sprite{filter:grayscale(1) brightness(.4); animation:none;}
+  .unit-slot.dead{opacity:.5;}
+  .unit-slot.active-turn .sprite{box-shadow:0 0 0 2px var(--gold) inset, 0 0 8px var(--gold);}
+  @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+  .sprite.lunge-up{animation:lungeUp .4s ease-in-out;}
+  @keyframes lungeUp{0%{transform:translateY(0);}40%{transform:translateY(-46px) scale(1.06);}100%{transform:translateY(0);}}
+  .sprite.lunge-down{animation:lungeDown .4s ease-in-out;}
+  @keyframes lungeDown{0%{transform:translateY(0);}40%{transform:translateY(46px) scale(1.06);}100%{transform:translateY(0);}}
+  .sprite.hit-flash{animation:hitFlash .32s ease-in-out;}
+  @keyframes hitFlash{0%{filter:none;}20%{filter:brightness(3) saturate(0);}40%{filter:brightness(1);}100%{filter:none;}}
+  .dmg-pop{position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:800; text-shadow:1px 1px 0 #000; opacity:0; pointer-events:none; z-index:9;}
+  .dmg-pop.dmg{color:#ff5a4d;}
+  .dmg-pop.heal{color:#7ee08a;}
+  .dmg-pop.show{animation:popUp .9s ease-out forwards;}
+  @keyframes popUp{0%{opacity:0;transform:translate(-50%,0) scale(.6);}15%{opacity:1;transform:translate(-50%,-14px) scale(1.1);}100%{opacity:0;transform:translate(-50%,-40px) scale(1);}}
+  .shield-badge{position:absolute; top:-4px; right:-4px; font-size:11px; z-index:6;}
+  .buffs{font-size:8px; color:var(--gold); margin-top:2px; text-align:center;}
+  .unit-slot.targetable{cursor:pointer;}
+  .unit-slot.targetable .sprite{animation: idle 1.8s ease-in-out infinite, targetPulse .9s ease-in-out infinite;}
+  @keyframes targetPulse{0%,100%{box-shadow:0 0 0 2px #ffcf4a inset, 0 0 6px #ffcf4a;}50%{box-shadow:0 0 0 3px #ffcf4a inset, 0 0 14px #ffcf4a;}}
+
+  #action-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:20px;}
+  #action-panel h3{margin:0 0 10px; font-size:14px;}
+  .skill-btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .target-btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+  #battle-log{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px 16px; height:220px; overflow-y:auto; font-size:12.5px; line-height:1.6;}
+  #battle-log .logline{border-bottom:1px solid var(--surface-3); padding:3px 0;}
+  #battle-log .logline.dmg{color:#e0a294;}
+  #battle-log .logline.heal{color:#a9d8a9;}
+  #battle-log .logline.buff{color:#e8d38a;}
+  #battle-log .logline.sys{color:var(--muted); font-style:italic;}
+
+  .toolbar{display:flex; gap:10px; margin-bottom:16px; align-items:center;}
+  #result-banner{text-align:center; padding:30px; background:var(--surface); border:1px solid var(--line); border-radius:8px;}
+  #result-banner h2{font-size:26px; margin:0 0 10px;}
+
+  /* ---------- Runde Skill-Buttons (Kampfbildschirm) ---------- */
+  .round-skill-btn{
+    width:64px; height:64px; border-radius:50%; border:3px solid var(--gold-soft);
+    background: radial-gradient(circle at 35% 30%, var(--surface-3), var(--surface-2));
+    color:var(--text); font-size:22px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; flex-shrink:0;
+  }
+  .round-skill-btn:hover:not(:disabled){border-color:var(--gold);}
+  .round-skill-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .round-skill-btn .cd-badge{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    font-size:9px; background:var(--gold-soft); color:#1a1712; border-radius:100px; padding:1px 6px; font-weight:700;
+    white-space:nowrap;
+  }
+  .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
+  .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
+  .elem-dots{display:flex; gap:3px; justify-content:center; margin-bottom:3px; height:8px;}
+  .elem-dot{width:8px; height:8px; border-radius:50%; box-shadow:0 0 0 1px #000;}
+  .skill-tooltip{
+    position:fixed; z-index:200; max-width:220px; background:var(--surface); border:1px solid var(--gold-soft);
+    border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:var(--text);
+    box-shadow:0 8px 24px rgba(0,0,0,.5); pointer-events:none; transform:translate(-50%,-100%);
+  }
+  .skill-tooltip strong{color:var(--gold); display:block; margin-bottom:3px; font-size:12.5px;}
+  .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
+  .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
+  #skill-choices.round-mode{display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
+
+  /* ---------- Querformat-Optimierung ---------- */
+  @media (orientation: landscape) and (max-height: 500px){
+    main{max-width:100%; padding:8px 14px 60px;}
+    header{padding:8px 14px;}
+    #battle-log{height:90px;}
+    .arena{padding:10px 8px;}
+    .unit-slot{width:70px;}
+    .enemy-row .unit-slot{width:60px;}
   }
 
-  .encounter-overlay{
-    position:fixed; inset:0; background:rgba(10,9,6,.85); display:none; align-items:center; justify-content:center; z-index:50;
+  @media (max-width: 700px){
+    main{padding:14px 12px 80px;}
+    header{padding:12px 14px;}
+    header h1{font-size:15px;}
+    .arena{padding:10px 8px;}
+    .card-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px;}
+    .unit-pick-card{padding:9px;}
+    .roster-row{padding:9px 10px; gap:8px;}
+    .roster-row .rname{min-width:100%; font-size:13.5px;}
+    .roster-row input[type=number]{width:48px;}
+    #battle-log{height:170px; font-size:12px;}
+    .skill-btn-row button, .target-btn-row button{flex:1 1 auto; min-width:110px;}
+    button{padding:9px 12px; font-size:13px;}
   }
-  .encounter-overlay.show{display:flex;}
-  .encounter-card{background:var(--surface); border:1px solid var(--gold-soft); border-radius:12px; padding:28px; text-align:center; max-width:320px;}
-  .encounter-card h2{color:var(--gold); margin:0 0 10px; font-size:18px;}
-
-  .footer-note{font-size:11px; color:var(--muted); margin-top:14px; line-height:1.6; text-align:center;}
+  @media (max-width: 420px){
+    .card-grid{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🗺 Erkunden — Prototyp</h1>
-  <span id="config-status" class="mono" style="font-size:10.5px;color:var(--muted);"></span>
+  <h1>⚔ Himmel und Hölle — Kampf-Prototyp</h1>
+  <div id="config-status" class="mono" style="font-size:11px;color:var(--muted);"></div>
 </header>
 
 <main>
-  <!-- ========== TEAM AUSWAHL ========== -->
-  <section class="view active" id="view-team">
-    <h2 style="font-size:16px;">1. Team wählen</h2>
-    <p style="color:var(--muted);font-size:12.5px;">Bis zu 4 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
+  <!-- ================= SETUP: TEAM ================= -->
+  <section class="view active" id="view-team-setup">
+    <h2>1. Team zusammenstellen</h2>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Helden. Level/Stern kannst du frei einstellen, um verschiedene Ausbaustufen zu testen.</p>
     <div class="toolbar" id="hero-filter-bar">
       <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
       <select id="hero-filter-rarity"><option value="all">Alle Seltenheiten</option></select>
     </div>
     <div class="card-grid" id="hero-pick-grid"></div>
+    <h3 style="font-size:14px;">Dein Team</h3>
+    <div class="roster-list" id="team-roster-list"></div>
     <div class="toolbar">
-      <button class="primary" id="to-map-select-btn">Weiter →</button>
+      <button class="primary" id="to-enemy-setup-btn">Weiter zur Gegner-Auswahl →</button>
     </div>
   </section>
 
-  <!-- ========== KARTE WÄHLEN ========== -->
-  <section class="view" id="view-map-select">
-    <h2 style="font-size:16px;">2. Gebiet wählen</h2>
-    <select id="map-select"></select>
-    <div class="toolbar" style="margin-top:14px;">
+  <!-- ================= SETUP: ENEMY ================= -->
+  <section class="view" id="view-enemy-setup">
+    <h2>2. Gegner zusammenstellen</h2>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 16 Einheiten (Helden oder Monster) — sie werden automatisch in Wellen à 4 aufgeteilt (Reihenfolge = Wellen-Zuordnung).</p>
+    <div class="toolbar" id="enemy-filter-bar">
+      <select id="enemy-filter-element"><option value="all">Alle Elemente</option></select>
+      <select id="enemy-filter-class"><option value="all">Alle Klassen</option></select>
+      <select id="enemy-filter-rarity"><option value="all">Alle Seltenheiten</option></select>
+    </div>
+    <div class="card-grid" id="enemy-pick-grid"></div>
+    <h3 style="font-size:14px;">Gegner-Team</h3>
+    <div class="roster-list" id="enemy-roster-list"></div>
+    <div class="toolbar">
       <button id="back-to-team-btn">← Zurück</button>
-      <button class="primary" id="start-explore-btn">Erkunden starten 🗺</button>
+      <button class="primary" id="start-battle-btn">Kampf starten ⚔</button>
     </div>
   </section>
 
-  <!-- ========== ERKUNDEN ========== -->
-  <section class="view" id="view-explore">
-    <div class="status-bar">
-      <span>Schritte: <strong id="step-count">0</strong></span>
-      <span id="map-name-label"></span>
+  <!-- ================= BATTLE ================= -->
+  <section class="view" id="view-battle">
+    <div class="toolbar" style="justify-content:space-between;">
+      <span id="wave-indicator" class="mono" style="font-size:12px;color:var(--gold);">Welle 1 von 1</span>
+      <div style="display:flex;gap:8px;">
+        <button id="speed-toggle">x1</button>
+        <button id="autobattle-toggle">🤖 Autokampf: Aus</button>
+      </div>
     </div>
-    <div class="map-wrap"><div class="map-grid" id="explore-grid"></div></div>
-    <p class="footer-note">Tippe auf ein angrenzendes Feld, um dich zu bewegen. Gestrichelte Felder = Encounter-Zone (Zufallskampf-Chance bei jedem Schritt darauf).</p>
-    <div class="dpad" id="dpad">
-      <button class="dpad-btn dpad-up" data-dx="0" data-dy="-1">▲</button>
-      <button class="dpad-btn dpad-left" data-dx="-1" data-dy="0">◀</button>
-      <div class="dpad-btn dpad-center"></div>
-      <button class="dpad-btn dpad-right" data-dx="1" data-dy="0">▶</button>
-      <button class="dpad-btn dpad-down" data-dx="0" data-dy="1">▼</button>
+    <div class="arena">
+      <div class="road"></div>
+      <div class="lane-row enemy-row" id="enemy-field"></div>
+      <div class="lane-row hero-row" id="player-field"></div>
+    </div>
+    <div id="action-panel" style="display:none;"></div>
+    <div id="battle-log"></div>
+  </section>
+
+  <!-- ================= RESULT ================= -->
+  <section class="view" id="view-result">
+    <div id="result-banner"></div>
+    <div class="toolbar" style="justify-content:center;margin-top:20px;">
+      <button id="back-to-explore-btn" style="display:none;">← Zurück zum Erkunden</button>
+      <button class="primary" id="restart-btn">Neuer Testkampf</button>
     </div>
   </section>
 </main>
-
-<div class="encounter-overlay" id="encounter-overlay">
-  <div class="encounter-card">
-    <h2>⚔ Zufallskampf!</h2>
-    <p style="color:var(--muted);font-size:13px;" id="encounter-desc">Eine Gruppe von Gegnern versperrt den Weg.</p>
-    <button class="primary" id="enter-battle-btn" style="margin-top:14px;">Kampf betreten</button>
-  </div>
-</div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -139,344 +255,742 @@ const SUPABASE_URL = 'https://mcdjyzewmppfrmzhkmrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_PAGzKtZZvjorx4Bs9S2LcA_UDFu6Smq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
-const GROUND_COLOR = { gras:'#2f5233', wueste:'#c9a86a', sumpf:'#54613f', hoelle:'#3a1a16', himmel:'#c7d0d6' };
-const PATH_COLOR = { weg:'#a68a5b', fluss:'#2f6f96', lavafluss:'#c9481f', bruecke:'#8a6339' };
-const OBJECT_COLOR = { berg:'#6b6b6b', baum:'#1f4a24' };
-const WEG_GROUP = ['weg','bruecke'];
-const TILE_PX = 52;
-
-function pathConnects(a,b){ if(!a||!b) return false; if (WEG_GROUP.includes(a)&&WEG_GROUP.includes(b)) return true; return a===b; }
-function objectConnects(a,b){ return !!a && !!b && a===b; }
-
-function connectorHtml(grid, x, y, type, color, connectFn){
-  if (!type) return '';
-  const up = connectFn(type, grid[y-1]?.[x]);
-  const down = connectFn(type, grid[y+1]?.[x]);
-  const left = connectFn(type, grid[y]?.[x-1]);
-  const right = connectFn(type, grid[y]?.[x+1]);
-  let html = `<span class="t-node" style="background:${color};"></span>`;
-  if (up) html += `<span class="t-arm up" style="background:${color};"></span>`;
-  if (down) html += `<span class="t-arm down" style="background:${color};"></span>`;
-  if (left) html += `<span class="t-arm left" style="background:${color};"></span>`;
-  if (right) html += `<span class="t-arm right" style="background:${color};"></span>`;
-  return html;
-}
-
-// Alte Karten (nur terrain_grid, kein ground/path/object) automatisch umwandeln
-function migrateMapIfNeeded(map){
-  if (Array.isArray(map.ground_grid) && map.ground_grid.length>0) return map;
-  const w = map.width, h = map.height;
-  const ground = Array.from({length:h},()=>Array.from({length:w},()=>'gras'));
-  const path = Array.from({length:h},()=>Array.from({length:w},()=>null));
-  const object = Array.from({length:h},()=>Array.from({length:w},()=>null));
-  const old = map.terrain_grid || [];
-  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
-    const t = old[y]?.[x] || 'gras';
-    if (t==='sand') ground[y][x]='wueste';
-    else if (t==='weg') path[y][x]='weg';
-    else if (t==='wasser') path[y][x]='fluss';
-    else if (t==='fels') object[y][x]='berg';
-    else if (t==='baum') object[y][x]='baum';
-  }
-  map.ground_grid = ground; map.path_grid = path; map.object_grid = object;
-  return map;
-}
-
-function tileHtml(map, x, y){
-  const groundType = map.ground_grid[y]?.[x] || 'gras';
-  const groundUrl = TILESETS[`ground:${groundType}:single`];
-  const bg = groundUrl ? `url('${groundUrl}')` : (GROUND_COLOR[groundType] || GROUND_COLOR.gras);
-  const bgIsImage = !!groundUrl;
-  const pathType = map.path_grid[y]?.[x];
-  const objType = map.object_grid[y]?.[x];
-  let inner = '';
-  inner += layerVisualHtml('path', pathType, map.path_grid, x, y, PATH_COLOR, pathConnects);
-  inner += layerVisualHtml('object', objType, map.object_grid, x, y, OBJECT_COLOR, objectConnects);
-  return { bg, bgIsImage, inner };
-}
-
-let UNITS = [], MAPS = [], TILESETS = {}, ELEMENTS = [], CLASSES = [], RARITIES = [];
-let teamSetup = [];
-let currentMap = null;
-let playerX = 0, playerY = 0, steps = 0;
+const XP_BASE_FACTOR = 8; // Standard-XP bei Level L = 8 * L^1.5
 const ELEMENT_BADGE_COLORS = { 'Feuer':'#d9705a', 'Wasser':'#5ea3cf', 'Erde':'#b89968', 'Luft':'#eef1ea' };
-const CLASS_ICON = { 'Mensch':'⚔️', 'Himmelswesen':'😇', 'Höllenwesen':'👹', 'Bestie':'🐺' };
-function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
-function classOf(id){ return CLASSES.find(c=>c.id===id); }
-function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
+let battleSpeed = 1;
+
+let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={};
 
 async function loadAll(){
-  const [un, mp, ts, el, cl, ra] = await Promise.all([
-    supabase.from('units').select('*').eq('is_playable', true),
-    supabase.from('maps').select('*').order('name'),
-    supabase.from('tilesets').select('*'),
+  const [el, elr, cl, clr, ra, sk, un, ls] = await Promise.all([
     supabase.from('elements').select('*'),
+    supabase.from('element_relations').select('*'),
     supabase.from('classes').select('*'),
+    supabase.from('class_relations').select('*'),
     supabase.from('rarities').select('*'),
+    supabase.from('skills').select('*, skill_elements(element_id)'),
+    supabase.from('units').select('*'),
+    supabase.from('unit_learnable_skills').select('*'),
   ]);
-  UNITS = un.data || []; MAPS = mp.data || [];
-  ELEMENTS = el.data || []; CLASSES = cl.data || []; RARITIES = ra.data || [];
-  TILESETS = {};
-  (ts.data||[]).forEach(t => { TILESETS[`${t.layer}:${t.type_key}:${t.shape}`] = t.image_url; });
-  document.getElementById('config-status').textContent = `${UNITS.length} Helden, ${MAPS.length} Karten`;
-  populateHeroFilters();
+  ELEMENTS = el.data||[]; ELEMENT_RELATIONS = elr.data||[]; CLASSES = cl.data||[]; CLASS_RELATIONS = clr.data||[];
+  RARITIES = ra.data||[]; SKILLS = sk.data||[]; UNITS = un.data||[];
+  LEARNABLE = {};
+  (ls.data||[]).forEach(row => { (LEARNABLE[row.unit_id] = LEARNABLE[row.unit_id]||[]).push(row); });
+  document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills geladen`;
 }
 
-function populateHeroFilters(){
-  const usedElemIds = [...new Set(UNITS.map(u=>u.element_id))];
-  const usedClassIds = [...new Set(UNITS.map(u=>u.class_id))];
-  const usedRarityIds = [...new Set(UNITS.map(u=>u.rarity_id).filter(Boolean))];
-  document.getElementById('hero-filter-element').innerHTML = `<option value="all">Alle Elemente</option>` + usedElemIds.map(id=>`<option value="${id}">${elementOf(id)?.name||'?'}</option>`).join('');
-  document.getElementById('hero-filter-class').innerHTML = `<option value="all">Alle Klassen</option>` + usedClassIds.map(id=>`<option value="${id}">${classOf(id)?.name||'?'}</option>`).join('');
-  document.getElementById('hero-filter-rarity').innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.filter(r=>usedRarityIds.includes(r.id)).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
-  ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
-    document.getElementById(id).addEventListener('change', renderHeroGrid);
+function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
+function classOf(id){ return CLASSES.find(c=>c.id===id); }
+function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
+function skillOf(id){ return SKILLS.find(s=>s.id===id); }
+
+function skillElementDots(skill){
+  if (!skill.elementIds || !skill.elementIds.length) return '';
+  return skill.elementIds.map(id => {
+    const color = ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888';
+    return `<span class="elem-dot" style="background:${color};"></span>`;
+  }).join('');
+}
+
+function attachLongPress(btn, skill){
+  let timer = null, triggered = false, tooltip = null;
+  const show = () => {
+    triggered = true;
+    tooltip = document.createElement('div');
+    tooltip.className = 'skill-tooltip';
+    tooltip.innerHTML = `<strong>${skill.name}</strong>${skill.description || 'Keine Beschreibung hinterlegt.'}`;
+    document.body.appendChild(tooltip);
+    const rect = btn.getBoundingClientRect();
+    tooltip.style.left = (rect.left + rect.width/2) + 'px';
+    tooltip.style.top = (rect.top - 8) + 'px';
+  };
+  const start = () => { triggered = false; clearTimeout(timer); timer = setTimeout(show, 2000); };
+  const end = () => { clearTimeout(timer); if (tooltip){ tooltip.remove(); tooltip = null; } };
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('touchstart', start, {passive:true});
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev => btn.addEventListener(ev, end));
+  btn.addEventListener('click', (e) => { if (triggered){ e.stopImmediatePropagation(); e.preventDefault(); triggered=false; } }, true);
+}
+
+function skillIcon(skill){
+  switch(skill.effect_type){
+    case 'damage': return skill.is_melee ? '🗡️' : '🏹';
+    case 'dot': return '🔥';
+    case 'heal': return '💚';
+    case 'shield': return '🛡️';
+    case 'buff': return '⬆️';
+    case 'debuff': return '⬇️';
+    case 'revive': return '✨';
+    case 'cleanse': return '✳️';
+    default: return '❓';
+  }
+}
+
+function classModifier(attackerClassId, defenderClassId){
+  if (attackerClassId===defenderClassId) return 0;
+  if (CLASS_RELATIONS.some(r=>r.attacker_class_id===attackerClassId && r.defender_class_id===defenderClassId)) return 0.25;
+  if (CLASS_RELATIONS.some(r=>r.attacker_class_id===defenderClassId && r.defender_class_id===attackerClassId)) return -0.25;
+  return 0;
+}
+function elementModifierSingle(attackerElemId, defenderElemId){
+  if (attackerElemId===defenderElemId) return 0;
+  if (ELEMENT_RELATIONS.some(r=>r.attacker_element_id===attackerElemId && r.defender_element_id===defenderElemId)) return 0.25;
+  if (ELEMENT_RELATIONS.some(r=>r.attacker_element_id===defenderElemId && r.defender_element_id===attackerElemId)) return -0.25;
+  return 0;
+}
+
+// ============================================================
+// STAT-BERECHNUNG (Level + Seltenheit + Stern)
+// ============================================================
+function computeEffective(unit, level, star){
+  const rar = rarityOf(unit.rarity_id) || { stat_multiplier:1 };
+  const starMult = 1 + 0.20*(star-1);
+  const calc = (base, growth) => Math.round(base + growth*(level-1)) * rar.stat_multiplier * starMult;
+  return {
+    maxHp: Math.round(calc(unit.base_hp, unit.growth_hp)),
+    atk: Math.round(calc(unit.base_atk, unit.growth_atk)),
+    def: Math.round(calc(unit.base_def, unit.growth_def)),
+    spd: Math.round(calc(unit.base_spd, unit.growth_spd)),
+  };
+}
+
+// ============================================================
+// SETUP STATE
+// ============================================================
+let teamSetup = [];   // {unit, level, star, position, activeSkillIds:Set}
+let enemySetup = [];
+
+function heroOptions(){ return UNITS.filter(u=>u.is_playable); }
+function enemyOptions(){ return UNITS; } // Helden UND Monster erlaubt als Gegner
+
+function populateFilterSelects(prefix, options){
+  const elSel = document.getElementById(`${prefix}-filter-element`);
+  const clSel = document.getElementById(`${prefix}-filter-class`);
+  const raSel = document.getElementById(`${prefix}-filter-rarity`);
+  const usedElemIds = [...new Set(options.map(u=>u.element_id))];
+  const usedClassIds = [...new Set(options.map(u=>u.class_id))];
+  const usedRarityIds = [...new Set(options.map(u=>u.rarity_id).filter(Boolean))];
+  elSel.innerHTML = `<option value="all">Alle Elemente</option>` + usedElemIds.map(id=>`<option value="${id}">${elementOf(id)?.name||'?'}</option>`).join('');
+  clSel.innerHTML = `<option value="all">Alle Klassen</option>` + usedClassIds.map(id=>`<option value="${id}">${classOf(id)?.name||'?'}</option>`).join('');
+  raSel.innerHTML = `<option value="all">Alle Seltenheiten</option>` + RARITIES.filter(r=>usedRarityIds.includes(r.id)).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+function applyFilters(prefix, options){
+  const elVal = document.getElementById(`${prefix}-filter-element`).value;
+  const clVal = document.getElementById(`${prefix}-filter-class`).value;
+  const raVal = document.getElementById(`${prefix}-filter-rarity`).value;
+  return options.filter(u => {
+    const elOk = elVal==='all' || String(u.element_id)===String(elVal);
+    const clOk = clVal==='all' || String(u.class_id)===String(clVal);
+    const raOk = raVal==='all' || String(u.rarity_id)===String(raVal);
+    return elOk && clOk && raOk;
   });
 }
 
-function computeShapeRotation(up, down, left, right){
-  const count = [up,down,left,right].filter(Boolean).length;
-  if (count===0) return {shape:'isolated', rot:0};
-  if (count===4) return {shape:'cross', rot:0};
-  if (count===1){
-    if (down) return {shape:'end', rot:0};
-    if (right) return {shape:'end', rot:90};
-    if (up) return {shape:'end', rot:180};
-    return {shape:'end', rot:270};
-  }
-  if (count===2){
-    if (up&&down) return {shape:'straight', rot:0};
-    if (left&&right) return {shape:'straight', rot:90};
-    if (down&&right) return {shape:'corner', rot:0};
-    if (down&&left) return {shape:'corner', rot:90};
-    if (up&&left) return {shape:'corner', rot:180};
-    return {shape:'corner', rot:270};
-  }
-  if (!up) return {shape:'t', rot:0};
-  if (!right) return {shape:'t', rot:90};
-  if (!down) return {shape:'t', rot:180};
-  return {shape:'t', rot:270};
+function renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster){
+  const options = applyFilters(filterPrefix, allOptions);
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = options.map(u => {
+    const elName = elementOf(u.element_id)?.name;
+    const rar = rarityOf(u.rarity_id);
+    const icon = CLASS_ICON[classOf(u.class_id)?.name] || (u.is_playable?'🗡️':'👹');
+    return `
+    <div class="unit-pick-card ${targetArray.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
+      <div class="upthumb">${u.sprite_url ? `<img src="${u.sprite_url}" alt="" />` : icon}</div>
+      <div class="upname">${u.name}</div>
+      <div class="upbadges">
+        <span class="up-badge" style="background:${ELEMENT_BADGE_COLORS[elName]||'#888'};">${elName||'?'}</span>
+        ${rar ? `<span class="up-badge rarity">${rar.name}</span>` : ''}
+      </div>
+      <div class="upmeta">${classOf(u.class_id)?.name||'?'}</div>
+      <div class="upmeta" style="color:var(--gold);">${u.style || (u.is_playable?'Held':'Monster')}</div>
+    </div>
+  `; }).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Einheiten für diese Filter gefunden.</div>`;
+  grid.querySelectorAll('.unit-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.id;
+      const idx = targetArray.findIndex(t=>t.unit.id===id);
+      if (idx>=0){ targetArray.splice(idx,1); }
+      else {
+        if (targetArray.length>=maxCount){ alert(`Maximal ${maxCount} Einheiten.`); return; }
+        const unit = allOptions.find(u=>u.id===id);
+        const learnable = (LEARNABLE[id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)})).filter(l=>l.skill);
+        const startSkillIds = learnable.filter(l=>l.unlock_level<=1).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
+        targetArray.push({ unit, level:1, star:1, position:'front', activeSkillIds: new Set(startSkillIds) });
+      }
+      renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster);
+      rerenderRoster();
+    });
+  });
 }
 
-function layerVisualHtml(layer, type, grid, x, y, colorMap, connectFn){
-  if (!type) return '';
-  if (type==='bruecke'){
-    const left = connectFn(type, grid[y]?.[x-1]);
-    const right = connectFn(type, grid[y]?.[x+1]);
-    const shape = (left||right) ? 'horizontal' : 'vertical';
-    const url = TILESETS[`path:bruecke:${shape}`];
-    if (url) return `<div class="tile-img" style="background-image:url('${url}');"></div>`;
-    return `<span class="t-node" style="background:${colorMap.bruecke};"></span>`;
-  }
-  const up = connectFn(type, grid[y-1]?.[x]);
-  const down = connectFn(type, grid[y+1]?.[x]);
-  const left = connectFn(type, grid[y]?.[x-1]);
-  const right = connectFn(type, grid[y]?.[x+1]);
-  const {shape, rot} = computeShapeRotation(up, down, left, right);
-  const url = TILESETS[`${layer}:${type}:${shape}`];
-  if (url) return `<div class="tile-img" style="background-image:url('${url}'); transform:rotate(${rot}deg);"></div>`;
-  return connectorHtml(grid, x, y, type, colorMap[type], connectFn) + (layer==='path' ? `<span class="t-shine"></span>` : '');
+function renderRoster(containerId, arr, rerenderGrid, showWave){
+  const box = document.getElementById(containerId);
+  box.innerHTML = arr.map((entry,idx) => {
+    const learnable = (LEARNABLE[entry.unit.id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)}))
+      .filter(l => l.skill && l.unlock_level<=entry.level && l.required_star_level<=entry.star);
+    const waveTag = showWave ? `<span style="font-size:10px;color:var(--gold);border:1px solid var(--line);border-radius:100px;padding:2px 8px;">Welle ${Math.floor(idx/4)+1}</span>` : '';
+    return `
+    <div class="roster-row" data-idx="${idx}">
+      <span class="rname">${entry.unit.name}</span>
+      ${waveTag}
+      <label>Level <input type="number" class="r-level" min="1" max="50" value="${entry.level}"/></label>
+      <label>Stern <input type="number" class="r-star" min="1" max="5" value="${entry.star}"/></label>
+      <label>Position
+        <select class="r-pos">
+          <option value="front" ${entry.position==='front'?'selected':''}>Front</option>
+          <option value="back" ${entry.position==='back'?'selected':''}>Back</option>
+        </select>
+      </label>
+      <button class="danger r-remove" style="border-color:var(--danger);color:#e0a294;">Entfernen</button>
+      <div class="skill-toggle" style="width:100%;">
+        ${learnable.map(l => `<span class="skill-chip ${entry.activeSkillIds.has(l.skill_id)?'on':''}" data-skill="${l.skill_id}">${l.skill.name} (CD ${l.skill.cooldown_turns})</span>`).join('') || '<span style="color:var(--muted);font-size:11px;">Keine Skills bei diesem Level/Stern verfügbar.</span>'}
+      </div>
+    </div>`;
+  }).join('') || `<div style="color:var(--muted);font-size:13px;">Noch keine Einheiten ausgewählt.</div>`;
+
+  box.querySelectorAll('.roster-row').forEach(row => {
+    const idx = +row.dataset.idx;
+    const entry = arr[idx];
+    row.querySelector('.r-level').addEventListener('change', e => { entry.level = Math.max(1, Math.min(50, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid, showWave); });
+    row.querySelector('.r-star').addEventListener('change', e => { entry.star = Math.max(1, Math.min(5, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid, showWave); });
+    row.querySelector('.r-pos').addEventListener('change', e => { entry.position = e.target.value; });
+    row.querySelector('.r-remove').addEventListener('click', () => { arr.splice(idx,1); renderRoster(containerId, arr, rerenderGrid, showWave); rerenderGrid(); });
+    row.querySelectorAll('.skill-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const sid = chip.dataset.skill;
+        const maxSlots = entry.unit.active_skill_slots || 4;
+        if (entry.activeSkillIds.has(sid)) entry.activeSkillIds.delete(sid);
+        else {
+          if (entry.activeSkillIds.size>=maxSlots){ alert(`Maximal ${maxSlots} aktive Skills.`); return; }
+          entry.activeSkillIds.add(sid);
+        }
+        renderRoster(containerId, arr, rerenderGrid, showWave);
+      });
+    });
+  });
 }
+
+function initSetupScreens(){
+  const heroes = heroOptions();
+  populateFilterSelects('hero', heroes);
+  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 4, rerenderTeamRoster); }
+  function rerenderTeamRoster(){ renderRoster('team-roster-list', teamSetup, rerenderTeamGrid); }
+  ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', rerenderTeamGrid);
+  });
+  rerenderTeamGrid();
+  rerenderTeamRoster();
+
+  const enemies = enemyOptions();
+  populateFilterSelects('enemy', enemies);
+  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 16, rerenderEnemyRoster); }
+  function rerenderEnemyRoster(){ renderRoster('enemy-roster-list', enemySetup, rerenderEnemyGrid, true); }
+  ['enemy-filter-element','enemy-filter-class','enemy-filter-rarity'].forEach(id => {
+    document.getElementById(id).addEventListener('change', rerenderEnemyGrid);
+  });
+  rerenderEnemyGrid();
+  rerenderEnemyRoster();
+}
+
+document.getElementById('to-enemy-setup-btn').addEventListener('click', () => {
+  if (!teamSetup.length){ alert('Wähle mindestens einen Helden.'); return; }
+  switchView('view-enemy-setup');
+});
+document.getElementById('back-to-team-btn').addEventListener('click', () => switchView('view-team-setup'));
 
 function switchView(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ---------- Team-Auswahl ----------
-function renderHeroGrid(){
-  const elVal = document.getElementById('hero-filter-element').value;
-  const clVal = document.getElementById('hero-filter-class').value;
-  const raVal = document.getElementById('hero-filter-rarity').value;
-  const filtered = UNITS.filter(u => {
-    const elOk = elVal==='all' || String(u.element_id)===String(elVal);
-    const clOk = clVal==='all' || String(u.class_id)===String(clVal);
-    const raOk = raVal==='all' || String(u.rarity_id)===String(raVal);
-    return elOk && clOk && raOk;
+// ============================================================
+// BATTLE ENGINE
+// ============================================================
+let battleUnits = [];
+let waveChunks = [];
+let currentWaveIndex = 0;
+let battleLogEl, playerFieldEl, enemyFieldEl, actionPanelEl;
+let battleOver = false;
+let autoBattle = false;
+let pendingResolve = null;
+
+function buildBattleUnit(entry, side, waveIndex){
+  const eff = computeEffective(entry.unit, entry.level, entry.star);
+  const skills = [...entry.activeSkillIds].map(sid => {
+    const s = skillOf(sid);
+    return { id:s.id, name:s.name, description:s.description, target_type:s.target_type, effect_type:s.effect_type, power:s.power,
+      duration_turns:s.duration_turns, cooldown_turns:s.cooldown_turns, is_melee:s.is_melee, buff_stat:s.buff_stat,
+      elementIds: (s.skill_elements||[]).map(se=>se.element_id) };
   });
-  const grid = document.getElementById('hero-pick-grid');
-  grid.innerHTML = filtered.map(u => {
-    const elName = elementOf(u.element_id)?.name;
-    const rar = rarityOf(u.rarity_id);
-    const icon = CLASS_ICON[classOf(u.class_id)?.name] || '🗡️';
-    return `
-    <div class="unit-pick-card ${teamSetup.some(t=>t.unit.id===u.id)?'selected':''}" data-id="${u.id}">
-      <div class="upthumb">${u.sprite_url ? `<img src="${u.sprite_url}" alt="" />` : icon}</div>
-      <strong>${u.name}</strong>
-      <div class="upbadges">
-        <span class="up-badge" style="background:${ELEMENT_BADGE_COLORS[elName]||'#888'};">${elName||'?'}</span>
-        ${rar ? `<span class="up-badge rarity">${rar.name}</span>` : ''}
+  return {
+    uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
+    name: entry.unit.name, side, position: entry.position, waveIndex: waveIndex ?? 0,
+    classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
+    maxHp: eff.maxHp, hp: eff.maxHp,
+    atk: eff.atk, def: eff.def, spd: eff.spd,
+    skills, skillCooldowns: {}, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
+    level: entry.level,
+  };
+}
+
+function getStat(u, stat){
+  const base = u[stat];
+  const factor = u.buffs.filter(b=>b.stat===stat).reduce((sum,b)=>sum+b.factor, 0);
+  return Math.max(0, base * (1+factor));
+}
+
+function updateAutoBattleLabel(){
+  const btn = document.getElementById('autobattle-toggle');
+  btn.textContent = autoBattle ? '🤖 Autokampf: An' : '🤖 Autokampf: Aus';
+  updateWaveIndicator();
+}
+document.getElementById('autobattle-toggle').addEventListener('click', () => {
+  autoBattle = !autoBattle;
+  updateAutoBattleLabel();
+});
+document.getElementById('speed-toggle').addEventListener('click', () => {
+  battleSpeed = battleSpeed>=3 ? 1 : battleSpeed+1;
+  document.getElementById('speed-toggle').textContent = 'x'+battleSpeed;
+});
+
+document.getElementById('start-battle-btn').addEventListener('click', () => {
+  if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
+  waveChunks = [];
+  for (let i=0; i<enemySetup.length; i+=4) waveChunks.push(enemySetup.slice(i, i+4));
+  currentWaveIndex = 0;
+  battleUnits = [
+    ...teamSetup.map(e=>buildBattleUnit(e,'player')),
+    ...waveChunks[0].map(e=>buildBattleUnit(e,'enemy',0)),
+  ];
+  battleOver = false;
+  autoBattle = false;
+  battleLogEl = document.getElementById('battle-log'); battleLogEl.innerHTML='';
+  playerFieldEl = document.getElementById('player-field'); enemyFieldEl = document.getElementById('enemy-field');
+  actionPanelEl = document.getElementById('action-panel');
+  updateAutoBattleLabel();
+  switchView('view-battle');
+  log('sys', `Der Kampf beginnt! Welle 1 von ${waveChunks.length}.`);
+  renderField();
+  battleLoop();
+});
+
+function log(cls, text){
+  const div = document.createElement('div');
+  div.className = 'logline ' + cls;
+  div.textContent = text;
+  battleLogEl.appendChild(div);
+  battleLogEl.scrollTop = battleLogEl.scrollHeight;
+}
+
+const CLASS_ICON = { 'Mensch':'⚔️', 'Himmelswesen':'😇', 'Höllenwesen':'👹', 'Bestie':'🐺' };
+
+function buffsText(u){
+  if (!u.buffs.length) return '';
+  const sums = {};
+  u.buffs.forEach(b => { sums[b.stat] = (sums[b.stat]||0) + b.factor; });
+  return Object.entries(sums)
+    .filter(([,v]) => Math.abs(v) > 0.0001)
+    .map(([stat,v]) => `${v>0?'+':''}${Math.round(v*100)}%${stat.toUpperCase()}`)
+    .join(' ');
+}
+
+function unitSlotHtml(u){
+  const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
+  const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
+  const visual = u.spriteUrl
+    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:6px;" />`
+    : icon;
+  const hpPct = Math.max(0, u.hp/u.maxHp*100);
+  return `
+    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
+      <div class="sprite-wrap">
+        <div class="shadow"></div>
+        <div class="sprite" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
-      <span style="color:var(--muted);">${u.style||''}</span>
-    </div>
-  `; }).join('') || `<div style="color:var(--muted);font-size:13px;">Keine Helden für diese Filter gefunden.</div>`;
-  grid.querySelectorAll('.unit-pick-card').forEach(card => {
-    card.addEventListener('click', async () => {
-      const id = card.dataset.id;
-      const idx = teamSetup.findIndex(t=>t.unit.id===id);
-      if (idx>=0){ teamSetup.splice(idx,1); }
-      else {
-        if (teamSetup.length>=4){ alert('Maximal 4 Helden.'); return; }
-        const unit = UNITS.find(u=>u.id===id);
-        const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', id).eq('unlock_level', 1);
-        const activeSkillIds = new Set((learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id));
-        teamSetup.push({ unit, level:1, star:1, position: teamSetup.length%2===0?'front':'back', activeSkillIds });
+      <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
+      <span class="pos-badge ${u.position==='front'?'front':''}">${u.position==='front'?'Front':'Hinten'}</span>
+      <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
+      <div class="buffs" data-buffs="${u.uid}">${buffsText(u)}</div>
+    </div>`;
+}
+
+// Front-Reihen zeigen zueinander (Richtung Strasse/Mitte): Gegner-Front unten im Gegner-Block,
+// eigene Front oben im eigenen Block. Gegner sieht man von vorne, eigene Truppen von hinten.
+function buildField(){
+  const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
+  const enemyBack = enemies.filter(u=>u.position!=='front');
+  const enemyFront = enemies.filter(u=>u.position==='front');
+  enemyFieldEl.innerHTML = `
+    <div class="sub-row">${enemyBack.map(unitSlotHtml).join('')}</div>
+    <div class="sub-row">${enemyFront.map(unitSlotHtml).join('')}</div>
+  `;
+
+  const players = battleUnits.filter(u=>u.side==='player');
+  const playerFront = players.filter(u=>u.position==='front');
+  const playerBack = players.filter(u=>u.position!=='front');
+  playerFieldEl.innerHTML = `
+    <div class="sub-row">${playerFront.map(unitSlotHtml).join('')}</div>
+    <div class="sub-row">${playerBack.map(unitSlotHtml).join('')}</div>
+  `;
+}
+// Rückwärtskompatibler Alias (frühere Aufrufe im Code)
+function renderField(){ buildField(); }
+
+function updateUnitVisual(u){
+  const slot = document.querySelector(`.unit-slot[data-uid="${u.uid}"]`);
+  if (!slot) return;
+  slot.classList.toggle('dead', u.hp<=0);
+  const hpPct = Math.max(0, u.hp/u.maxHp*100);
+  const hpBar = slot.querySelector('[data-hpbar]');
+  hpBar.style.width = hpPct+'%'; hpBar.classList.toggle('low', hpPct<30);
+  slot.querySelector('[data-hptext]').textContent = `${Math.max(0,Math.round(u.hp))}/${u.maxHp}`;
+  slot.querySelector('[data-buffs]').textContent = buffsText(u);
+  const sprite = slot.querySelector('.sprite');
+  let shieldEl = sprite.querySelector('[data-shield]');
+  if (u.shield>0 && !shieldEl){ sprite.insertAdjacentHTML('afterbegin', `<span class="shield-badge" data-shield="${u.uid}">🛡</span>`); }
+  else if (u.shield<=0 && shieldEl){ shieldEl.remove(); }
+}
+
+function highlightActive(actor){
+  document.querySelectorAll('.unit-slot.active-turn').forEach(el=>el.classList.remove('active-turn'));
+  const slot = document.querySelector(`.unit-slot[data-uid="${actor.uid}"]`);
+  if (slot) slot.classList.add('active-turn');
+}
+
+function animateAttacker(u){
+  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
+  if (!sprite) return;
+  sprite.classList.remove('lunge-up','lunge-down'); void sprite.offsetWidth;
+  sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
+}
+
+function animateHit(u, text, cls){
+  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
+  if (!sprite) return;
+  if (cls==='dmg'){ sprite.classList.remove('hit-flash'); void sprite.offsetWidth; sprite.classList.add('hit-flash'); }
+  const pop = sprite.querySelector('.dmg-pop');
+  if (pop && text){
+    pop.textContent = text;
+    pop.className = 'dmg-pop ' + cls;
+    void pop.offsetWidth;
+    pop.classList.add('show');
+  }
+}
+
+let currentActor = null;
+
+function tickBuffs(u){
+  u.buffs.forEach(b=>b.turnsLeft--);
+  u.buffs = u.buffs.filter(b=>b.turnsLeft>0);
+}
+
+function getNextActor(){
+  while (true){
+    battleUnits.forEach(u=>{ if(u.alive) u.atb += u.spd; });
+    const ready = battleUnits.filter(u=>u.alive && u.atb>=1000);
+    if (ready.length){
+      ready.sort((a,b)=>b.atb-a.atb);
+      ready[0].atb -= 1000;
+      return ready[0];
+    }
+  }
+}
+
+function aliveOf(side){ return battleUnits.filter(u=>u.side===side && u.alive); }
+function deadOf(side){ return battleUnits.filter(u=>u.side===side && !u.alive); }
+
+function validTargets(actor, skill){
+  const allySide = aliveOf(actor.side);
+  const enemySide = aliveOf(actor.side==='player'?'enemy':'player');
+  switch(skill.target_type){
+    case 'self': return [actor];
+    case 'single_ally': return allySide;
+    case 'all_allies': return allySide;
+    case 'single_enemy': {
+      if (skill.is_melee){
+        const front = enemySide.filter(u=>u.position==='front');
+        if (front.length) return front;
       }
-      renderHeroGrid();
+      return enemySide;
+    }
+    case 'all_enemies': return enemySide;
+  }
+  return [];
+}
+
+function resolveAction(actor, skill, targets){
+  if (skill.cooldown_turns > 0) actor.skillCooldowns[skill.id] = skill.cooldown_turns;
+  const results = [];
+  if (skill.effect_type==='revive'){
+    const dead = deadOf(actor.side);
+    const target = dead[0];
+    if (!target){ log('sys', `${actor.name} findet niemanden zum Wiederbeleben.`); return results; }
+    target.hp = Math.round(target.maxHp * skill.power/100);
+    target.alive = true;
+    log('heal', `${actor.name} belebt ${target.name} mit ${target.hp} HP wieder!`);
+    results.push({target, text:'✨ Wiederbelebt', cls:'heal'});
+    return results;
+  }
+  for (const target of targets){
+    switch(skill.effect_type){
+      case 'damage':
+      case 'dot': {
+        let base = getStat(actor,'atk') * (skill.power/100);
+        let defVal = getStat(target,'def');
+        if (target.position==='front') defVal *= 1.10;
+        let afterDef = base * (100/(100+defVal));
+        let classMod = classModifier(actor.classId, target.classId);
+        let elemMod = 0;
+        for (const eid of skill.elementIds) elemMod += elementModifierSingle(eid, target.elementId);
+        let dmg = Math.max(1, Math.round(afterDef * (1+classMod+elemMod)));
+        if (target.shield>0){
+          const absorbed = Math.min(target.shield, dmg);
+          target.shield -= absorbed; dmg -= absorbed;
+        }
+        target.hp -= dmg;
+        log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${target.hp<=0?' — besiegt!':''}`);
+        results.push({target, text:'-'+dmg, cls:'dmg'});
+        if (target.hp<=0){ target.hp=0; target.alive=false; }
+        break;
+      }
+      case 'heal': {
+        const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
+        target.hp = Math.min(target.maxHp, target.hp+amount);
+        log('heal', `${actor.name} heilt ${target.name} um ${amount} (${skill.name}).`);
+        results.push({target, text:'+'+amount, cls:'heal'});
+        break;
+      }
+      case 'shield': {
+        const amount = Math.round(getStat(actor,'atk') * (skill.power/100));
+        target.shield += amount;
+        log('buff', `${actor.name} gewährt ${target.name} einen Schild von ${amount} (${skill.name}).`);
+        results.push({target, text:'🛡'+amount, cls:'heal'});
+        break;
+      }
+      case 'buff':
+      case 'debuff': {
+        const sign = skill.effect_type==='buff' ? 1 : -1;
+        target.buffs.push({ stat: skill.buff_stat, factor: sign*(skill.power/100), turnsLeft: (skill.duration_turns||1)+1 });
+        log('buff', `${actor.name} wirkt ${skill.name} auf ${target.name}: ${sign>0?'+':''}${sign*skill.power}% ${(skill.buff_stat||'').toUpperCase()} für ${skill.duration_turns||1} Runden.`);
+        results.push({target, text: sign>0?'▲':'▼', cls:'heal'});
+        break;
+      }
+      case 'cleanse': {
+        target.buffs = target.buffs.filter(b=>b.factor>0);
+        log('buff', `${actor.name} reinigt ${target.name} von negativen Effekten (${skill.name}).`);
+        results.push({target, text:'✳️', cls:'heal'});
+        break;
+      }
+    }
+  }
+  return results;
+}
+
+function isReady(actor, skill){ return !(actor.skillCooldowns[skill.id] > 0); }
+
+function pickAIAction(actor){
+  const ready = actor.skills.filter(s=>isReady(actor, s));
+  const pool = ready.length ? ready : actor.skills.filter(s=>s.cooldown_turns===0);
+  if (!pool.length) return null;
+  const skill = pool[Math.floor(Math.random()*pool.length)];
+  const targets = validTargets(actor, skill);
+  if (!targets.length) return null;
+  const chosen = (skill.target_type==='all_allies' || skill.target_type==='all_enemies') ? targets : [targets[Math.floor(Math.random()*targets.length)]];
+  return { skill, targets: chosen };
+}
+
+function checkBattleEnd(){
+  const playerAlive = aliveOf('player').length>0;
+  if (!playerAlive){ battleOver = true; showResult(false); return true; }
+  const enemyAlive = aliveOf('enemy').length>0;
+  if (!enemyAlive){
+    if (currentWaveIndex < waveChunks.length-1){
+      advanceWave();
+      return false; // Kampf geht weiter mit der nächsten Welle
+    }
+    battleOver = true; showResult(true); return true;
+  }
+  return false;
+}
+
+function advanceWave(){
+  currentWaveIndex++;
+  log('sys', `⚔ Welle ${currentWaveIndex} besiegt! Ihr zieht die Strasse weiter — Welle ${currentWaveIndex+1} von ${waveChunks.length} erscheint.`);
+  aliveOf('player').forEach(u => {
+    const healAmt = Math.round(u.maxHp*0.15);
+    u.hp = Math.min(u.maxHp, u.hp+healAmt);
+  });
+  log('sys', `Kurze Verschnaufpause: Team regeneriert 15% HP.`);
+  const nextWave = waveChunks[currentWaveIndex].map(e=>buildBattleUnit(e,'enemy',currentWaveIndex));
+  battleUnits.push(...nextWave);
+  updateWaveIndicator();
+  buildField();
+}
+
+function updateWaveIndicator(){
+  const el = document.getElementById('wave-indicator');
+  if (el) el.textContent = `Welle ${currentWaveIndex+1} von ${waveChunks.length}`;
+}
+
+function tickCooldowns(u){
+  Object.keys(u.skillCooldowns).forEach(id => {
+    if (u.skillCooldowns[id] > 0) u.skillCooldowns[id]--;
+  });
+}
+
+async function battleLoop(){
+  while (!battleOver){
+    currentActor = getNextActor();
+    if (!currentActor.alive) continue;
+    tickCooldowns(currentActor);
+    tickBuffs(currentActor);
+    highlightActive(currentActor);
+    updateUnitVisual(currentActor);
+
+    if (checkBattleEnd()) return;
+
+    let skill, targets;
+    if (currentActor.side==='player' && !autoBattle){
+      ({skill, targets} = await waitForPlayerAction(currentActor));
+    } else {
+      const action = pickAIAction(currentActor);
+      if (!action){
+        log('sys', `${currentActor.name} kann nichts tun.`);
+        await new Promise(r=>setTimeout(r, 200/battleSpeed));
+        continue;
+      }
+      skill = action.skill; targets = action.targets;
+    }
+
+    animateAttacker(currentActor);
+    await new Promise(r=>setTimeout(r, 220/battleSpeed));
+
+    const results = resolveAction(currentActor, skill, targets);
+    results.forEach(r => animateHit(r.target, r.text, r.cls));
+    await new Promise(r=>setTimeout(r, 160/battleSpeed));
+    results.forEach(r => updateUnitVisual(r.target));
+    updateUnitVisual(currentActor);
+
+    if (checkBattleEnd()) return;
+    await new Promise(r=>setTimeout(r, 200/battleSpeed));
+  }
+}
+
+function waitForPlayerAction(actor){
+  return new Promise(resolve => {
+    actionPanelEl.style.display = 'block';
+    actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row round-mode" id="skill-choices"></div><p id="target-hint" style="font-size:11px;color:var(--gold);margin:8px 0 0;display:none;">👆 Ziel im Kampffeld antippen…</p>`;
+    const skillBox = document.getElementById('skill-choices');
+    const anyReady = actor.skills.some(s=>isReady(actor, s));
+    if (!anyReady){
+      skillBox.innerHTML = `<span style="color:var(--muted);font-size:12px;">Alle Fähigkeiten im Cooldown — Zug wird übersprungen.</span>`;
+      setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,cooldown_turns:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
+      return;
+    }
+    skillBox.innerHTML = actor.skills.map((s,i) => {
+      const ready = isReady(actor, s);
+      const cdLeft = actor.skillCooldowns[s.id] || 0;
+      const badgeText = ready ? (s.cooldown_turns>0 ? `CD ${s.cooldown_turns}` : 'bereit') : `${cdLeft} Rd.`;
+      return `
+      <div class="round-skill-wrap">
+        <div class="elem-dots">${skillElementDots(s)}</div>
+        <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
+        <div class="round-skill-label">${s.name}</div>
+      </div>
+    `; }).join('');
+    skillBox.querySelectorAll('.round-skill-btn').forEach(btn => {
+      attachLongPress(btn, actor.skills[+btn.dataset.i]);
+    });
+    skillBox.querySelectorAll('.skill-opt:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const skill = actor.skills[+btn.dataset.i];
+        const targets = validTargets(actor, skill);
+        if (skill.target_type==='all_allies' || skill.target_type==='all_enemies' || skill.target_type==='self'){
+          actionPanelEl.style.display='none';
+          resolve({ skill, targets: skill.target_type==='self'?[actor]:targets });
+          return;
+        }
+        enterTargetingMode(targets, (target) => {
+          actionPanelEl.style.display='none';
+          resolve({ skill, targets: [target] });
+        });
+      });
     });
   });
 }
 
-document.getElementById('to-map-select-btn').addEventListener('click', () => {
-  if (!teamSetup.length){ alert('Wähle mindestens einen Helden.'); return; }
-  const sel = document.getElementById('map-select');
-  sel.innerHTML = MAPS.map(m => `<option value="${m.id}">${m.name}</option>`).join('') || `<option value="">Keine Karten vorhanden</option>`;
-  switchView('view-map-select');
-});
-document.getElementById('back-to-team-btn').addEventListener('click', () => switchView('view-team'));
-
-// ---------- Karte & Bewegung ----------
-document.getElementById('start-explore-btn').addEventListener('click', async () => {
-  const mapId = document.getElementById('map-select').value;
-  if (!mapId){ alert('Keine Karte gewählt.'); return; }
-  const { data, error } = await supabase.from('maps').select('*').eq('id', mapId).single();
-  if (error) { alert('Fehler beim Laden der Karte: ' + error.message); return; }
-  currentMap = migrateMapIfNeeded(data);
-  playerX = currentMap.spawn_x; playerY = currentMap.spawn_y; steps = 0;
-  document.getElementById('map-name-label').textContent = currentMap.name;
-  document.getElementById('step-count').textContent = steps;
-  switchView('view-explore');
-  renderMap();
-  centerOnPlayer(false);
-});
-
-function renderMap(){
-  const grid = document.getElementById('explore-grid');
-  grid.style.gridTemplateColumns = `repeat(${currentMap.width}, ${TILE_PX}px)`;
-  grid.style.width = (currentMap.width*TILE_PX)+'px';
-  grid.style.height = (currentMap.height*TILE_PX)+'px';
-  const cells = [];
-  for (let y=0; y<currentMap.height; y++){
-    for (let x=0; x<currentMap.width; x++){
-      const blocked = !!currentMap.collision_grid[y]?.[x];
-      const enc = !!currentMap.encounter_grid[y]?.[x];
-      const { bg, bgIsImage, inner } = tileHtml(currentMap, x, y);
-      const bgStyle = bgIsImage ? `background-image:${bg};background-size:cover;image-rendering:pixelated;` : `background:${bg};`;
-      cells.push(`<div class="tile" data-x="${x}" data-y="${y}" style="width:${TILE_PX}px;height:${TILE_PX}px;${bgStyle}${blocked?'box-shadow:inset 0 0 0 1px rgba(165,71,58,.7);':''}${enc?'outline:1px dashed rgba(224,184,74,.7);outline-offset:-2px;':''}">${inner}</div>`);
-    }
+function enterTargetingMode(targets, onPick){
+  const hint = document.getElementById('target-hint');
+  if (hint) hint.style.display = 'block';
+  const uids = new Set(targets.map(t=>t.uid));
+  const slots = [...document.querySelectorAll('.unit-slot')].filter(el=>uids.has(el.dataset.uid));
+  slots.forEach(el => el.classList.add('targetable'));
+  function cleanup(){
+    slots.forEach(el => { el.classList.remove('targetable'); el.removeEventListener('click', handler); });
+    if (hint) hint.style.display = 'none';
   }
-  grid.innerHTML = cells.join('') + `<div class="player-token" id="player-token" style="left:${playerX*TILE_PX}px; top:${playerY*TILE_PX}px; width:${TILE_PX}px; height:${TILE_PX}px;">🧍</div>`;
-
-  grid.querySelectorAll('.tile').forEach(tile => {
-    tile.addEventListener('click', () => tryMove(+tile.dataset.x, +tile.dataset.y));
-  });
+  function handler(e){
+    const uid = e.currentTarget.dataset.uid;
+    const target = targets.find(t=>t.uid===uid);
+    cleanup();
+    if (target) onPick(target);
+  }
+  slots.forEach(el => el.addEventListener('click', handler));
 }
 
-function centerOnPlayer(smooth){
-  const token = document.getElementById('player-token');
-  if (token) token.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' });
-}
-
-function tryMove(x, y){
-  const dx = Math.abs(x-playerX), dy = Math.abs(y-playerY);
-  if (!((dx===1 && dy===0) || (dx===0 && dy===1))) return; // nur direkt angrenzende Felder
-  if (x<0 || y<0 || x>=currentMap.width || y>=currentMap.height) return;
-  if (currentMap.collision_grid[y]?.[x]) return;
-
-  playerX = x; playerY = y; steps++;
-  document.getElementById('step-count').textContent = steps;
-  const token = document.getElementById('player-token');
-  token.style.left = (playerX*TILE_PX)+'px';
-  token.style.top = (playerY*TILE_PX)+'px';
-  centerOnPlayer(true);
-
-  if (currentMap.encounter_grid[y]?.[x]){
-    if (Math.random() < currentMap.encounter_rate) {
-      setTimeout(triggerEncounter, 180);
-    }
+function showResult(victory){
+  switchView('view-result');
+  const banner = document.getElementById('result-banner');
+  const backBtn = document.getElementById('back-to-explore-btn');
+  backBtn.style.display = sessionStorage.getItem('hah_return_explore') ? 'inline-flex' : 'none';
+  if (victory){
+    const defeatedEnemies = battleUnits.filter(u=>u.side==='enemy');
+    const totalXp = defeatedEnemies.reduce((sum,u) => {
+      const unitData = UNITS.find(x=>x.name===u.name);
+      const mult = unitData?.xp_multiplier ?? 1;
+      return sum + (XP_BASE_FACTOR * Math.pow(u.level,1.5)) * mult;
+    }, 0);
+    const players = battleUnits.filter(u=>u.side==='player');
+    const perHero = Math.round(totalXp / players.length);
+    banner.innerHTML = `<h2 style="color:var(--ok);">Sieg! 🎉</h2>
+      <p>Gesamt-XP: <span class="mono">${Math.round(totalXp)}</span> — pro Held (${players.length} im Team): <span class="mono">${perHero}</span></p>`;
+  } else {
+    banner.innerHTML = `<h2 style="color:var(--hp);">Niederlage…</h2><p>Das Gegner-Team hat gewonnen.</p>`;
   }
 }
 
-document.addEventListener('keydown', (e) => {
-  if (!document.getElementById('view-explore').classList.contains('active')) return;
-  if (!currentMap) return;
-  const moves = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0], w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
-  const move = moves[e.key];
-  if (!move) return;
-  e.preventDefault();
-  tryMove(playerX+move[0], playerY+move[1]);
+document.getElementById('restart-btn').addEventListener('click', () => {
+  switchView('view-team-setup');
 });
-
-document.querySelectorAll('.dpad-btn[data-dx]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!currentMap) return;
-    tryMove(playerX + (+btn.dataset.dx), playerY + (+btn.dataset.dy));
-  });
-});
-
-// ---------- Encounter → Übergabe zum Kampf ----------
-async function triggerEncounter(){
-  const map = currentMap;
-  const { data: pool, error } = await supabase.from('units').select('*, rarities(name)');
-  if (error || !pool || !pool.length) { alert('Keine Einheiten in der Datenbank gefunden.'); return; }
-
-  const elemOk = (u) => !map.allowed_element_ids?.length || map.allowed_element_ids.includes(u.element_id);
-  const rarityOk = (u) => !u.rarity_id || !map.allowed_rarity_ids?.length || map.allowed_rarity_ids.includes(u.rarity_id);
-  const notTooRare = (u) => !u.is_playable || !['Episch','Legendär'].includes(u.rarities?.name);
-
-  const eligible = pool.filter(u => elemOk(u) && rarityOk(u) && notTooRare(u));
-  if (!eligible.length){ alert('Kein Gegner passt zu den Filterkriterien dieser Karte (Elemente/Seltenheiten im Karten-Editor prüfen).'); return; }
-
-  const waveCount = map.wave_count || 3;
-  const lvlMin = map.level_min || 1;
-  const lvlMax = Math.max(lvlMin, map.level_max || lvlMin);
-  const totalEnemies = waveCount * 4;
-
-  const enemies = [];
-  for (let i=0; i<totalEnemies; i++){
-    const unit = eligible[Math.floor(Math.random()*eligible.length)];
-    const level = lvlMin + Math.floor(Math.random()*(lvlMax-lvlMin+1));
-    const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', unit.id).lte('unlock_level', level);
-    const activeSkillIds = (learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
-    enemies.push({ unitId: unit.id, level, star: 1, position: i%4<2?'front':'back', activeSkillIds });
-  }
-  const teamPayload = teamSetup.map(e => ({ unitId: e.unit.id, level: e.level, star: e.star, position: e.position, activeSkillIds: [...e.activeSkillIds] }));
-
-  sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies }));
-  sessionStorage.setItem('hah_return_explore', JSON.stringify({ mapId: currentMap.id, x: playerX, y: playerY, steps, team: teamPayload }));
-  document.getElementById('encounter-desc').textContent = `Eine Gruppe von Gegnern (${waveCount} Welle${waveCount>1?'n':''} à 4) versperrt den Weg.`;
-  document.getElementById('encounter-overlay').classList.add('show');
-}
-document.getElementById('enter-battle-btn').addEventListener('click', () => {
-  window.location.href = 'combat-prototype.html';
+document.getElementById('back-to-explore-btn').addEventListener('click', () => {
+  window.location.href = 'explore-prototype.html';
 });
 
 (async () => {
   await loadAll();
-  renderHeroGrid();
-  await tryResumeExplore();
+  initSetupScreens();
+  tryLoadHandoff();
 })();
 
-async function tryResumeExplore(){
-  const raw = sessionStorage.getItem('hah_return_explore');
+function tryLoadHandoff(){
+  const raw = sessionStorage.getItem('hah_handoff');
   if (!raw) return;
-  sessionStorage.removeItem('hah_return_explore');
+  sessionStorage.removeItem('hah_handoff');
   try {
     const data = JSON.parse(raw);
     teamSetup = data.team.map(e => ({
       unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
       activeSkillIds: new Set(e.activeSkillIds),
     })).filter(e=>e.unit);
-    const { data: map, error } = await supabase.from('maps').select('*').eq('id', data.mapId).single();
-    if (error || !map) return;
-    currentMap = migrateMapIfNeeded(map);
-    playerX = data.x; playerY = data.y; steps = data.steps || 0;
-    document.getElementById('map-name-label').textContent = currentMap.name;
-    document.getElementById('step-count').textContent = steps;
-    switchView('view-explore');
-    renderMap();
-    centerOnPlayer(false);
-  } catch(err){ console.error('Rückkehr fehlgeschlagen', err); }
+    enemySetup = data.enemies.map(e => ({
+      unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
+      activeSkillIds: new Set(e.activeSkillIds),
+    })).filter(e=>e.unit);
+    if (teamSetup.length && enemySetup.length){
+      document.getElementById('start-battle-btn').click();
+    }
+  } catch(err){ console.error('Handoff fehlgeschlagen', err); }
 }
 </script>
 </body>
