@@ -461,6 +461,13 @@ async function loadLookups(){
   effectFilterSel.innerHTML = `<option value="all">Alle Effekte</option>` + Object.entries(EFFECT_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
 }
 
+const ROLE_OPTIONS = ['Nahkampf-DD', 'Fernkampf-DD', 'Tank', 'Heiler', 'Buffer', 'Debuffer', 'Support'];
+function roleOptionList(current){
+  const opts = [...ROLE_OPTIONS];
+  if (current && !opts.includes(current)) opts.unshift(current);
+  return opts.map(r => `<option value="${r}" ${r===current?'selected':''}>${r}</option>`).join('');
+}
+
 function optionList(items, selectedId, labelKey='name'){
   return items.map(i => `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${i[labelKey]}</option>`).join('');
 }
@@ -535,7 +542,7 @@ function openUnitDrawer(unit){
     style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10,
     growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5,
     xp_multiplier:1.0,
-    area_tag:'', is_mini_boss:false, is_boss:false
+    is_mini_boss:false, is_boss:false
   };
 
   document.getElementById('drawer').innerHTML = `
@@ -584,7 +591,7 @@ function openUnitDrawer(unit){
 
     <div class="field">
       <label>Stil / Rolle</label>
-      <input type="text" id="f-style" value="${u.style || ''}" placeholder="z.B. einfacher Nahkämpfer" />
+      <select id="f-style">${roleOptionList(u.style)}</select>
     </div>
 
     <div class="field">
@@ -614,7 +621,6 @@ function openUnitDrawer(unit){
 
     <div id="field-encounter-fields">
       <h3 style="font-size:14px;margin-top:22px;">Feld-Encounter</h3>
-      <div class="field"><label>Gebiet</label><input type="text" id="f-area" value="${u.area_tag || ''}" placeholder="z.B. Wald der Anfänge" /></div>
       <div class="field">
         <label>XP-Multiplikator (1.0 = normal, Mini-Boss ~3-4, Boss ~6-10)</label>
         <input type="number" step="0.1" id="f-xp-mult" value="${u.xp_multiplier ?? 1.0}" />
@@ -683,7 +689,6 @@ function openUnitDrawer(unit){
       growth_def: +document.getElementById('f-g-def').value,
       growth_spd: +document.getElementById('f-g-spd').value,
       xp_multiplier: +document.getElementById('f-xp-mult').value,
-      area_tag: document.getElementById('f-area').value,
       is_mini_boss: document.getElementById('f-minib').checked,
       is_boss: document.getElementById('f-boss').checked,
     };
@@ -1290,17 +1295,22 @@ function migrateOldTerrainIfNeeded(){
 }
 
 async function loadMapsList(){
-  const { data, error } = await supabase.from('maps').select('id, name, area_tag').order('name');
+  const { data, error } = await supabase.from('maps').select('id, name').order('name');
   if (error) { console.error(error); return; }
   allMaps = data || [];
   const sel = document.getElementById('map-select');
-  sel.innerHTML = `<option value="">— Karte wählen —</option>` + allMaps.map(m => `<option value="${m.id}">${m.name} (${m.area_tag})</option>`).join('');
+  sel.innerHTML = `<option value="">— Karte wählen —</option>` + allMaps.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 }
 document.getElementById('map-select').addEventListener('change', async (e) => {
   if (!e.target.value) { currentMap = null; document.getElementById('map-editor-content').innerHTML = `<div class="empty-hint">Wähle oben eine Karte oder erstelle eine neue.</div>`; return; }
   const { data, error } = await supabase.from('maps').select('*').eq('id', e.target.value).single();
   if (error) { alert('Fehler beim Laden: ' + error.message); return; }
   currentMap = data;
+  currentMap.allowed_element_ids = currentMap.allowed_element_ids || [];
+  currentMap.allowed_rarity_ids = currentMap.allowed_rarity_ids || [];
+  currentMap.level_min = currentMap.level_min ?? 1;
+  currentMap.level_max = currentMap.level_max ?? 10;
+  currentMap.wave_count = currentMap.wave_count ?? 3;
   migrateOldTerrainIfNeeded();
   activeLayer = 'ground'; activePaletteKey = 'gras';
   renderMapEditor();
@@ -1308,8 +1318,9 @@ document.getElementById('map-select').addEventListener('change', async (e) => {
 document.getElementById('new-map-btn').addEventListener('click', () => {
   const w = 20, h = 15;
   currentMap = {
-    id: null, name: 'Neue Karte', area_tag: '', width: w, height: h, tile_size: 32,
+    id: null, name: 'Neue Karte', width: w, height: h, tile_size: 32,
     spawn_x: 1, spawn_y: 1, encounter_rate: 0.15,
+    allowed_element_ids: [], allowed_rarity_ids: [], level_min: 1, level_max: 10, wave_count: 3,
     ground_grid: emptyGrid(w, h, 'gras'),
     path_grid: emptyGrid(w, h, null),
     object_grid: emptyGrid(w, h, null),
@@ -1363,11 +1374,37 @@ function renderMapEditor(){
   box.innerHTML = `
     <div class="map-toolbar">
       <div class="field"><label>Name</label><input type="text" id="map-name" value="${currentMap.name}" /></div>
-      <div class="field"><label>Gebiet (area_tag)</label><input type="text" id="map-area" value="${currentMap.area_tag}" placeholder="z.B. Wald der Anfänge" /></div>
       <div class="field"><label>Breite</label><input type="number" id="map-w" value="${currentMap.width}" min="5" max="60" /></div>
       <div class="field"><label>Höhe</label><input type="number" id="map-h" value="${currentMap.height}" min="5" max="60" /></div>
       <button id="apply-size-btn">Grösse anwenden</button>
       <div class="field"><label>Encounter-Rate (0-1)</label><input type="number" step="0.01" id="map-rate" value="${currentMap.encounter_rate}" /></div>
+    </div>
+
+    <div class="tileset-panel">
+      <h4>⚔ Encounter-Filter (welche Helden hier als Gegner auftreten können)</h4>
+      <div class="row2">
+        <div class="field">
+          <label>Erlaubte Elemente (keine Auswahl = alle erlaubt)</label>
+          <div class="checkbox-row">
+            ${ELEMENTS.map(e => `<label><input type="checkbox" class="map-elem-cb" value="${e.id}" ${currentMap.allowed_element_ids.includes(e.id)?'checked':''}/> ${e.name}</label>`).join('')}
+          </div>
+        </div>
+        <div class="field">
+          <label>Erlaubte Seltenheiten (keine Auswahl = alle erlaubt)</label>
+          <div class="checkbox-row">
+            ${RARITIES.map(r => `<label><input type="checkbox" class="map-rarity-cb" value="${r.id}" ${currentMap.allowed_rarity_ids.includes(r.id)?'checked':''}/> ${r.name}</label>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="row3" style="margin-top:12px;">
+        <div class="field"><label>Level von</label><input type="number" id="map-level-min" value="${currentMap.level_min}" min="1" max="50" /></div>
+        <div class="field"><label>Level bis</label><input type="number" id="map-level-max" value="${currentMap.level_max}" min="1" max="50" /></div>
+        <div class="field"><label>Wellenanzahl (je 4 Gegner)</label>
+          <select id="map-wave-count">
+            ${[1,2,3,4].map(n=>`<option value="${n}" ${currentMap.wave_count===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="layer-tabs">
@@ -1545,13 +1582,19 @@ function applyMapSize(){
 
 async function saveMap(){
   currentMap.name = document.getElementById('map-name').value.trim() || 'Unbenannte Karte';
-  currentMap.area_tag = document.getElementById('map-area').value.trim();
   currentMap.encounter_rate = +document.getElementById('map-rate').value || 0.15;
+  currentMap.allowed_element_ids = [...document.querySelectorAll('.map-elem-cb:checked')].map(cb=>+cb.value);
+  currentMap.allowed_rarity_ids = [...document.querySelectorAll('.map-rarity-cb:checked')].map(cb=>+cb.value);
+  currentMap.level_min = +document.getElementById('map-level-min').value || 1;
+  currentMap.level_max = +document.getElementById('map-level-max').value || 10;
+  currentMap.wave_count = +document.getElementById('map-wave-count').value || 3;
 
   const payload = {
-    name: currentMap.name, area_tag: currentMap.area_tag, width: currentMap.width, height: currentMap.height,
+    name: currentMap.name, width: currentMap.width, height: currentMap.height,
     tile_size: currentMap.tile_size, spawn_x: currentMap.spawn_x, spawn_y: currentMap.spawn_y,
     encounter_rate: currentMap.encounter_rate,
+    allowed_element_ids: currentMap.allowed_element_ids, allowed_rarity_ids: currentMap.allowed_rarity_ids,
+    level_min: currentMap.level_min, level_max: currentMap.level_max, wave_count: currentMap.wave_count,
     ground_grid: currentMap.ground_grid, path_grid: currentMap.path_grid, object_grid: currentMap.object_grid,
     collision_grid: currentMap.collision_grid, encounter_grid: currentMap.encounter_grid,
   };
