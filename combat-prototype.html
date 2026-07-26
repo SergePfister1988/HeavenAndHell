@@ -75,20 +75,6 @@
 
   .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
   .enemy-row .sprite-wrap{width:42px; height:42px;}
-  .elem-ring{
-    position:absolute; left:50%; top:50%; width:170%; height:170%;
-    transform:translate(-50%,-50%) scale(.3) rotate(-90deg); border-radius:50%;
-    -webkit-mask-image: radial-gradient(circle, transparent 54%, #000 59%, #000 76%, transparent 82%);
-    mask-image: radial-gradient(circle, transparent 54%, #000 59%, #000 76%, transparent 82%);
-    opacity:0; pointer-events:none; z-index:4; filter:blur(.5px) drop-shadow(0 0 5px rgba(255,255,255,.35));
-  }
-  .elem-ring.show{ animation: ringPulse .85s ease-out forwards; }
-  @keyframes ringPulse{
-    0%{opacity:0; transform:translate(-50%,-50%) scale(.3) rotate(-90deg);}
-    20%{opacity:.95; transform:translate(-50%,-50%) scale(.85) rotate(-55deg);}
-    60%{opacity:.75; transform:translate(-50%,-50%) scale(1.15) rotate(15deg);}
-    100%{opacity:0; transform:translate(-50%,-50%) scale(1.4) rotate(45deg);}
-  }
   .shadow{position:absolute; bottom:-3px; width:60%; height:8px; background:rgba(0,0,0,.5); border-radius:50%; filter:blur(1.5px);}
   .sprite{
     width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px;
@@ -178,8 +164,14 @@
   }
   .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
   .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
-  .elem-dots{display:flex; gap:3px; justify-content:center; margin-bottom:3px; height:8px;}
-  .elem-dot{width:8px; height:8px; border-radius:50%; box-shadow:0 0 0 1px #000;}
+  .skill-ring-holder{position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;}
+  .elem-ring-btn{
+    position:absolute; inset:-6px; border-radius:50%; z-index:0;
+    -webkit-mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
+    mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
+    box-shadow:0 0 8px rgba(255,255,255,.25);
+  }
+  .round-skill-btn{ z-index:1; }
   .skill-tooltip{
     position:fixed; z-index:200; max-width:220px; background:var(--surface); border:1px solid var(--gold-soft);
     border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:var(--text);
@@ -326,12 +318,13 @@ function classOf(id){ return CLASSES.find(c=>c.id===id); }
 function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
 function skillOf(id){ return SKILLS.find(s=>s.id===id); }
 
-function skillElementDots(skill){
+function skillElementRingStyle(skill){
   if (!skill.elementIds || !skill.elementIds.length) return '';
-  return skill.elementIds.map(id => {
-    const color = ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888';
-    return `<span class="elem-dot" style="background:${color};"></span>`;
-  }).join('');
+  const colors = skill.elementIds.map(id => ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888').slice(0,2);
+  const gradient = colors.length>1
+    ? `conic-gradient(${colors[0]} 0deg 180deg, ${colors[1]} 180deg 360deg)`
+    : `conic-gradient(${colors[0]} 0deg 360deg)`;
+  return `background:${gradient};`;
 }
 
 function attachLongPress(btn, skill){
@@ -707,32 +700,12 @@ function animateAttacker(u){
   sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
 }
 
-const ELEMENT_RING_COLORS = { 'Feuer':'#ff6a2b', 'Wasser':'#39a8e0', 'Erde':'#b98a4a', 'Luft':'#e8f5ec' };
-
-function showElementRing(u, elementIds){
-  if (!elementIds || !elementIds.length) return;
-  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
-  const wrap = sprite?.closest('.sprite-wrap');
-  if (!wrap) return;
-  const colors = elementIds.map(id => ELEMENT_RING_COLORS[elementOf(id)?.name] || '#cccccc').slice(0,2);
-  const ring = document.createElement('div');
-  ring.className = 'elem-ring';
-  ring.style.background = colors.length>1
-    ? `conic-gradient(${colors[0]} 0deg 180deg, ${colors[1]} 180deg 360deg)`
-    : `conic-gradient(${colors[0]} 0deg 360deg)`;
-  wrap.appendChild(ring);
-  void ring.offsetWidth;
-  ring.classList.add('show');
-  setTimeout(() => ring.remove(), 900);
-}
-
-function animateHit(u, text, cls, eff, elementIds){
+function animateHit(u, text, cls, eff){
   const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
   if (!sprite) return;
   if (cls==='dmg'){
     sprite.classList.remove('hit-flash','hit-flash-super'); void sprite.offsetWidth;
     sprite.classList.add(eff==='super' ? 'hit-flash-super' : 'hit-flash');
-    showElementRing(u, elementIds);
   }
   const pop = sprite.querySelector('.dmg-pop');
   if (pop && text){
@@ -827,7 +800,7 @@ function resolveAction(actor, skill, targets){
         const effTag = totalMod > 0.001 ? ' (effektiv!)' : totalMod < -0.001 ? ' (nicht sehr effektiv)' : '';
         log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${effTag}${target.hp<=0?' — besiegt!':''}`);
         const eff = totalMod > 0.001 ? 'super' : totalMod < -0.001 ? 'weak' : '';
-        results.push({target, text:'-'+dmg, cls:'dmg', eff, elementIds: skill.elementIds});
+        results.push({target, text:'-'+dmg, cls:'dmg', eff});
         if (target.hp<=0){ target.hp=0; target.alive=false; }
         break;
       }
@@ -944,7 +917,7 @@ async function battleLoop(){
     await new Promise(r=>setTimeout(r, 220/battleSpeed));
 
     const results = resolveAction(currentActor, skill, targets);
-    results.forEach(r => animateHit(r.target, r.text, r.cls, r.eff, r.elementIds));
+    results.forEach(r => animateHit(r.target, r.text, r.cls, r.eff));
     await new Promise(r=>setTimeout(r, 160/battleSpeed));
     results.forEach(r => updateUnitVisual(r.target));
     updateUnitVisual(currentActor);
@@ -971,8 +944,10 @@ function waitForPlayerAction(actor){
       const badgeText = ready ? (s.cooldown_turns>0 ? `CD ${s.cooldown_turns}` : 'bereit') : `${cdLeft} Rd.`;
       return `
       <div class="round-skill-wrap">
-        <div class="elem-dots">${skillElementDots(s)}</div>
-        <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
+        <div class="skill-ring-holder">
+          ${s.elementIds && s.elementIds.length ? `<div class="elem-ring-btn" style="${skillElementRingStyle(s)}"></div>` : ''}
+          <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
+        </div>
         <div class="round-skill-label">${s.name}</div>
       </div>
     `; }).join('');
