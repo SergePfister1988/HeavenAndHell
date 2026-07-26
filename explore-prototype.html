@@ -84,7 +84,7 @@
   <!-- ========== TEAM AUSWAHL ========== -->
   <section class="view active" id="view-team">
     <h2 style="font-size:16px;">1. Team wählen</h2>
-    <p style="color:var(--muted);font-size:12.5px;">Bis zu 5 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
+    <p style="color:var(--muted);font-size:12.5px;">Bis zu 4 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
     <div class="toolbar" id="hero-filter-bar">
       <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
@@ -127,7 +127,7 @@
 <div class="encounter-overlay" id="encounter-overlay">
   <div class="encounter-card">
     <h2>⚔ Zufallskampf!</h2>
-    <p style="color:var(--muted);font-size:13px;">Eine Gruppe von Gegnern (3 Wellen à 5) versperrt den Weg.</p>
+    <p style="color:var(--muted);font-size:13px;" id="encounter-desc">Eine Gruppe von Gegnern versperrt den Weg.</p>
     <button class="primary" id="enter-battle-btn" style="margin-top:14px;">Kampf betreten</button>
   </div>
 </div>
@@ -316,7 +316,7 @@ function renderHeroGrid(){
       const idx = teamSetup.findIndex(t=>t.unit.id===id);
       if (idx>=0){ teamSetup.splice(idx,1); }
       else {
-        if (teamSetup.length>=5){ alert('Maximal 5 Helden.'); return; }
+        if (teamSetup.length>=4){ alert('Maximal 4 Helden.'); return; }
         const unit = UNITS.find(u=>u.id===id);
         const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', id).eq('unlock_level', 1);
         const activeSkillIds = new Set((learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id));
@@ -330,7 +330,7 @@ function renderHeroGrid(){
 document.getElementById('to-map-select-btn').addEventListener('click', () => {
   if (!teamSetup.length){ alert('Wähle mindestens einen Helden.'); return; }
   const sel = document.getElementById('map-select');
-  sel.innerHTML = MAPS.map(m => `<option value="${m.id}">${m.name} (${m.area_tag})</option>`).join('') || `<option value="">Keine Karten vorhanden</option>`;
+  sel.innerHTML = MAPS.map(m => `<option value="${m.id}">${m.name}</option>`).join('') || `<option value="">Keine Karten vorhanden</option>`;
   switchView('view-map-select');
 });
 document.getElementById('back-to-team-btn').addEventListener('click', () => switchView('view-team'));
@@ -416,22 +416,35 @@ document.querySelectorAll('.dpad-btn[data-dx]').forEach(btn => {
 
 // ---------- Encounter → Übergabe zum Kampf ----------
 async function triggerEncounter(){
-  const { data: pool, error } = await supabase.from('units').select('*, rarities(name)').eq('area_tag', currentMap.area_tag);
-  if (error || !pool || !pool.length) { alert('Keine Gegner für dieses Gebiet hinterlegt (area_tag stimmt nicht überein?).'); return; }
-  const eligible = pool.filter(u => !u.is_playable || (u.is_playable && !['Episch','Legendär'].includes(u.rarities?.name)));
-  if (!eligible.length){ alert('Kein gültiger Gegner-Pool gefunden.'); return; }
+  const map = currentMap;
+  const { data: pool, error } = await supabase.from('units').select('*, rarities(name)');
+  if (error || !pool || !pool.length) { alert('Keine Einheiten in der Datenbank gefunden.'); return; }
+
+  const elemOk = (u) => !map.allowed_element_ids?.length || map.allowed_element_ids.includes(u.element_id);
+  const rarityOk = (u) => !u.rarity_id || !map.allowed_rarity_ids?.length || map.allowed_rarity_ids.includes(u.rarity_id);
+  const notTooRare = (u) => !u.is_playable || !['Episch','Legendär'].includes(u.rarities?.name);
+
+  const eligible = pool.filter(u => elemOk(u) && rarityOk(u) && notTooRare(u));
+  if (!eligible.length){ alert('Kein Gegner passt zu den Filterkriterien dieser Karte (Elemente/Seltenheiten im Karten-Editor prüfen).'); return; }
+
+  const waveCount = map.wave_count || 3;
+  const lvlMin = map.level_min || 1;
+  const lvlMax = Math.max(lvlMin, map.level_max || lvlMin);
+  const totalEnemies = waveCount * 4;
 
   const enemies = [];
-  for (let i=0; i<15; i++){
+  for (let i=0; i<totalEnemies; i++){
     const unit = eligible[Math.floor(Math.random()*eligible.length)];
-    const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', unit.id).eq('unlock_level', 1);
+    const level = lvlMin + Math.floor(Math.random()*(lvlMax-lvlMin+1));
+    const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', unit.id).lte('unlock_level', level);
     const activeSkillIds = (learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
-    enemies.push({ unitId: unit.id, level: 1, star: 1, position: i%5<3?'front':'back', activeSkillIds });
+    enemies.push({ unitId: unit.id, level, star: 1, position: i%4<2?'front':'back', activeSkillIds });
   }
   const teamPayload = teamSetup.map(e => ({ unitId: e.unit.id, level: e.level, star: e.star, position: e.position, activeSkillIds: [...e.activeSkillIds] }));
 
   sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies }));
   sessionStorage.setItem('hah_return_explore', JSON.stringify({ mapId: currentMap.id, x: playerX, y: playerY, steps, team: teamPayload }));
+  document.getElementById('encounter-desc').textContent = `Eine Gruppe von Gegnern (${waveCount} Welle${waveCount>1?'n':''} à 4) versperrt den Weg.`;
   document.getElementById('encounter-overlay').classList.add('show');
 }
 document.getElementById('enter-battle-btn').addEventListener('click', () => {
