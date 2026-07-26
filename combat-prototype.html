@@ -75,6 +75,20 @@
 
   .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
   .enemy-row .sprite-wrap{width:42px; height:42px;}
+  .elem-ring{
+    position:absolute; left:50%; top:50%; width:170%; height:170%;
+    transform:translate(-50%,-50%) scale(.3) rotate(-90deg); border-radius:50%;
+    -webkit-mask-image: radial-gradient(circle, transparent 54%, #000 59%, #000 76%, transparent 82%);
+    mask-image: radial-gradient(circle, transparent 54%, #000 59%, #000 76%, transparent 82%);
+    opacity:0; pointer-events:none; z-index:4; filter:blur(.5px) drop-shadow(0 0 5px rgba(255,255,255,.35));
+  }
+  .elem-ring.show{ animation: ringPulse .85s ease-out forwards; }
+  @keyframes ringPulse{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.3) rotate(-90deg);}
+    20%{opacity:.95; transform:translate(-50%,-50%) scale(.85) rotate(-55deg);}
+    60%{opacity:.75; transform:translate(-50%,-50%) scale(1.15) rotate(15deg);}
+    100%{opacity:0; transform:translate(-50%,-50%) scale(1.4) rotate(45deg);}
+  }
   .shadow{position:absolute; bottom:-3px; width:60%; height:8px; background:rgba(0,0,0,.5); border-radius:50%; filter:blur(1.5px);}
   .sprite{
     width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px;
@@ -108,10 +122,10 @@
   .dmg-pop.show{animation:popUp 1.7s ease-out forwards;}
   @keyframes popUp{
     0%{opacity:0; transform:translate(-50%,0) scale(.6);}
-    10%{opacity:1; transform:translate(-50%,-14px) scale(1.15);}
-    20%{transform:translate(-50%,-18px) scale(1);}
-    70%{opacity:1; transform:translate(-50%,-34px) scale(1);}
-    100%{opacity:0; transform:translate(-50%,-50px) scale(1);}
+    10%{opacity:1; transform:translate(-50%,0) scale(1.2);}
+    20%{transform:translate(-50%,0) scale(1);}
+    75%{opacity:1; transform:translate(-50%,0) scale(1);}
+    100%{opacity:0; transform:translate(-50%,0) scale(.95);}
   }
   .eff-tag{
     position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); white-space:nowrap;
@@ -693,12 +707,32 @@ function animateAttacker(u){
   sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
 }
 
-function animateHit(u, text, cls, eff){
+const ELEMENT_RING_COLORS = { 'Feuer':'#ff6a2b', 'Wasser':'#39a8e0', 'Erde':'#b98a4a', 'Luft':'#e8f5ec' };
+
+function showElementRing(u, elementIds){
+  if (!elementIds || !elementIds.length) return;
+  const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
+  const wrap = sprite?.closest('.sprite-wrap');
+  if (!wrap) return;
+  const colors = elementIds.map(id => ELEMENT_RING_COLORS[elementOf(id)?.name] || '#cccccc').slice(0,2);
+  const ring = document.createElement('div');
+  ring.className = 'elem-ring';
+  ring.style.background = colors.length>1
+    ? `conic-gradient(${colors[0]} 0deg 180deg, ${colors[1]} 180deg 360deg)`
+    : `conic-gradient(${colors[0]} 0deg 360deg)`;
+  wrap.appendChild(ring);
+  void ring.offsetWidth;
+  ring.classList.add('show');
+  setTimeout(() => ring.remove(), 900);
+}
+
+function animateHit(u, text, cls, eff, elementIds){
   const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
   if (!sprite) return;
   if (cls==='dmg'){
     sprite.classList.remove('hit-flash','hit-flash-super'); void sprite.offsetWidth;
     sprite.classList.add(eff==='super' ? 'hit-flash-super' : 'hit-flash');
+    showElementRing(u, elementIds);
   }
   const pop = sprite.querySelector('.dmg-pop');
   if (pop && text){
@@ -793,7 +827,7 @@ function resolveAction(actor, skill, targets){
         const effTag = totalMod > 0.001 ? ' (effektiv!)' : totalMod < -0.001 ? ' (nicht sehr effektiv)' : '';
         log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${effTag}${target.hp<=0?' — besiegt!':''}`);
         const eff = totalMod > 0.001 ? 'super' : totalMod < -0.001 ? 'weak' : '';
-        results.push({target, text:'-'+dmg, cls:'dmg', eff});
+        results.push({target, text:'-'+dmg, cls:'dmg', eff, elementIds: skill.elementIds});
         if (target.hp<=0){ target.hp=0; target.alive=false; }
         break;
       }
@@ -910,7 +944,7 @@ async function battleLoop(){
     await new Promise(r=>setTimeout(r, 220/battleSpeed));
 
     const results = resolveAction(currentActor, skill, targets);
-    results.forEach(r => animateHit(r.target, r.text, r.cls, r.eff));
+    results.forEach(r => animateHit(r.target, r.text, r.cls, r.eff, r.elementIds));
     await new Promise(r=>setTimeout(r, 160/battleSpeed));
     results.forEach(r => updateUnitVisual(r.target));
     updateUnitVisual(currentActor);
