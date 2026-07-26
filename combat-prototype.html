@@ -33,7 +33,7 @@
   .unit-pick-card:hover{border-color:var(--gold-soft);}
   .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
   .upthumb{width:100%; height:56px; border-radius:6px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:6px; overflow:hidden;}
-  .upthumb img{width:100%; height:100%; object-fit:cover; object-position:top;}
+  .upthumb img{width:100%; height:100%; object-fit:contain;}
   .upname{font-weight:600; font-size:12.5px;}
   .upbadges{display:flex; gap:4px; margin:4px 0; flex-wrap:wrap;}
   .up-badge{font-size:9px; font-weight:700; color:#1a1712; border-radius:100px; padding:1px 7px;}
@@ -93,11 +93,39 @@
   @keyframes lungeDown{0%{transform:translateY(0);}40%{transform:translateY(46px) scale(1.06);}100%{transform:translateY(0);}}
   .sprite.hit-flash{animation:hitFlash .32s ease-in-out;}
   @keyframes hitFlash{0%{filter:none;}20%{filter:brightness(3) saturate(0);}40%{filter:brightness(1);}100%{filter:none;}}
-  .dmg-pop{position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:800; text-shadow:1px 1px 0 #000; opacity:0; pointer-events:none; z-index:9;}
+  .sprite.hit-flash-super{animation:hitFlashSuper .5s ease-in-out;}
+  @keyframes hitFlashSuper{
+    0%{filter:none; transform:scale(1);}
+    15%{filter:brightness(3.5) saturate(0); transform:scale(1.12);}
+    35%{filter:brightness(1.3) saturate(1.4); transform:scale(1.05);}
+    100%{filter:none; transform:scale(1);}
+  }
+  .dmg-pop{position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:13px; font-weight:800; text-shadow:1px 1px 0 #000; opacity:0; pointer-events:none; z-index:9; white-space:nowrap;}
   .dmg-pop.dmg{color:#ff5a4d;}
   .dmg-pop.heal{color:#7ee08a;}
-  .dmg-pop.show{animation:popUp .9s ease-out forwards;}
-  @keyframes popUp{0%{opacity:0;transform:translate(-50%,0) scale(.6);}15%{opacity:1;transform:translate(-50%,-14px) scale(1.1);}100%{opacity:0;transform:translate(-50%,-40px) scale(1);}}
+  .dmg-pop.super{color:#ffd23f; font-size:17px; text-shadow:0 0 8px rgba(255,210,63,.9), 1px 1px 0 #000;}
+  .dmg-pop.weak{color:#93a8c4; font-size:11px;}
+  .dmg-pop.show{animation:popUp 1.7s ease-out forwards;}
+  @keyframes popUp{
+    0%{opacity:0; transform:translate(-50%,0) scale(.6);}
+    10%{opacity:1; transform:translate(-50%,-14px) scale(1.15);}
+    20%{transform:translate(-50%,-18px) scale(1);}
+    70%{opacity:1; transform:translate(-50%,-34px) scale(1);}
+    100%{opacity:0; transform:translate(-50%,-50px) scale(1);}
+  }
+  .eff-tag{
+    position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); white-space:nowrap;
+    font-size:9px; font-weight:800; padding:2px 8px; border-radius:100px; opacity:0; pointer-events:none; z-index:10;
+  }
+  .eff-tag.super{background:#ffd23f; color:#3a2c00;}
+  .eff-tag.weak{background:#3a4a5c; color:#93a8c4;}
+  .eff-tag.show{animation:effTagShow 1.7s ease-out forwards;}
+  @keyframes effTagShow{
+    0%{opacity:0; transform:translate(-50%,4px);}
+    12%{opacity:1; transform:translate(-50%,0);}
+    75%{opacity:1;}
+    100%{opacity:0; transform:translate(-50%,-6px);}
+  }
   .shield-badge{position:absolute; top:-4px; right:-4px; font-size:11px; z-index:6;}
   .buffs{font-size:8px; color:var(--gold); margin-top:2px; text-align:center;}
   .unit-slot.targetable{cursor:pointer;}
@@ -599,7 +627,7 @@ function unitSlotHtml(u){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
   const visual = u.spriteUrl
-    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:6px;" />`
+    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" />`
     : icon;
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   return `
@@ -665,16 +693,28 @@ function animateAttacker(u){
   sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
 }
 
-function animateHit(u, text, cls){
+function animateHit(u, text, cls, eff){
   const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
   if (!sprite) return;
-  if (cls==='dmg'){ sprite.classList.remove('hit-flash'); void sprite.offsetWidth; sprite.classList.add('hit-flash'); }
+  if (cls==='dmg'){
+    sprite.classList.remove('hit-flash','hit-flash-super'); void sprite.offsetWidth;
+    sprite.classList.add(eff==='super' ? 'hit-flash-super' : 'hit-flash');
+  }
   const pop = sprite.querySelector('.dmg-pop');
   if (pop && text){
-    pop.textContent = text;
-    pop.className = 'dmg-pop ' + cls;
+    pop.textContent = eff==='super' ? '⚡'+text : eff==='weak' ? text+' 🔰' : text;
+    pop.className = 'dmg-pop ' + cls + (eff ? ' '+eff : '');
     void pop.offsetWidth;
     pop.classList.add('show');
+  }
+  if (eff && cls==='dmg'){
+    const tag = document.createElement('span');
+    tag.className = 'eff-tag ' + eff;
+    tag.textContent = eff==='super' ? 'Effektiv!' : 'Nicht sehr effektiv…';
+    sprite.appendChild(tag);
+    void tag.offsetWidth;
+    tag.classList.add('show');
+    setTimeout(() => tag.remove(), 1700);
   }
 }
 
@@ -743,14 +783,17 @@ function resolveAction(actor, skill, targets){
         let classMod = classModifier(actor.classId, target.classId);
         let elemMod = 0;
         for (const eid of skill.elementIds) elemMod += elementModifierSingle(eid, target.elementId);
-        let dmg = Math.max(1, Math.round(afterDef * (1+classMod+elemMod)));
+        let totalMod = classMod + elemMod;
+        let dmg = Math.max(1, Math.round(afterDef * (1+totalMod)));
         if (target.shield>0){
           const absorbed = Math.min(target.shield, dmg);
           target.shield -= absorbed; dmg -= absorbed;
         }
         target.hp -= dmg;
-        log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${target.hp<=0?' — besiegt!':''}`);
-        results.push({target, text:'-'+dmg, cls:'dmg'});
+        const effTag = totalMod > 0.001 ? ' (effektiv!)' : totalMod < -0.001 ? ' (nicht sehr effektiv)' : '';
+        log('dmg', `${actor.name} trifft ${target.name} mit ${skill.name}: ${dmg} Schaden${effTag}${target.hp<=0?' — besiegt!':''}`);
+        const eff = totalMod > 0.001 ? 'super' : totalMod < -0.001 ? 'weak' : '';
+        results.push({target, text:'-'+dmg, cls:'dmg', eff});
         if (target.hp<=0){ target.hp=0; target.alive=false; }
         break;
       }
@@ -867,7 +910,7 @@ async function battleLoop(){
     await new Promise(r=>setTimeout(r, 220/battleSpeed));
 
     const results = resolveAction(currentActor, skill, targets);
-    results.forEach(r => animateHit(r.target, r.text, r.cls));
+    results.forEach(r => animateHit(r.target, r.text, r.cls, r.eff));
     await new Promise(r=>setTimeout(r, 160/battleSpeed));
     results.forEach(r => updateUnitVisual(r.target));
     updateUnitVisual(currentActor);
