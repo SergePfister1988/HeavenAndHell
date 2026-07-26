@@ -58,7 +58,10 @@
     background: repeating-linear-gradient(0deg, #1c2f21 0 20px, #223a28 20px 40px);
     clip-path: polygon(30% 0%, 70% 0%, 96% 100%, 4% 100%);
   }
-  .lane-row{position:relative; z-index:2; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; padding:8px 0;}
+  .lane-row{position:relative; z-index:2; display:flex; flex-direction:column; gap:6px; padding:6px 0;}
+  .sub-row{display:flex; justify-content:center; gap:10px; flex-wrap:wrap;}
+  .pos-badge{font-size:7px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:0 5px; margin-top:2px; display:inline-block;}
+  .pos-badge.front{color:var(--gold); border-color:var(--gold-soft);}
   .unit-slot{display:flex; flex-direction:column; align-items:center; width:88px;}
   .enemy-row .unit-slot{width:74px;}
   .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center;}
@@ -133,6 +136,14 @@
   }
   .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
   .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
+  .elem-dots{display:flex; gap:3px; justify-content:center; margin-bottom:3px; height:8px;}
+  .elem-dot{width:8px; height:8px; border-radius:50%; box-shadow:0 0 0 1px #000;}
+  .skill-tooltip{
+    position:fixed; z-index:200; max-width:220px; background:var(--surface); border:1px solid var(--gold-soft);
+    border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:var(--text);
+    box-shadow:0 8px 24px rgba(0,0,0,.5); pointer-events:none; transform:translate(-50%,-100%);
+  }
+  .skill-tooltip strong{color:var(--gold); display:block; margin-bottom:3px; font-size:12.5px;}
   .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
   .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
   #skill-choices.round-mode{display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
@@ -272,6 +283,34 @@ function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
 function classOf(id){ return CLASSES.find(c=>c.id===id); }
 function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
 function skillOf(id){ return SKILLS.find(s=>s.id===id); }
+
+function skillElementDots(skill){
+  if (!skill.elementIds || !skill.elementIds.length) return '';
+  return skill.elementIds.map(id => {
+    const color = ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888';
+    return `<span class="elem-dot" style="background:${color};"></span>`;
+  }).join('');
+}
+
+function attachLongPress(btn, skill){
+  let timer = null, triggered = false, tooltip = null;
+  const show = () => {
+    triggered = true;
+    tooltip = document.createElement('div');
+    tooltip.className = 'skill-tooltip';
+    tooltip.innerHTML = `<strong>${skill.name}</strong>${skill.description || 'Keine Beschreibung hinterlegt.'}`;
+    document.body.appendChild(tooltip);
+    const rect = btn.getBoundingClientRect();
+    tooltip.style.left = (rect.left + rect.width/2) + 'px';
+    tooltip.style.top = (rect.top - 8) + 'px';
+  };
+  const start = () => { triggered = false; clearTimeout(timer); timer = setTimeout(show, 2000); };
+  const end = () => { clearTimeout(timer); if (tooltip){ tooltip.remove(); tooltip = null; } };
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('touchstart', start, {passive:true});
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev => btn.addEventListener(ev, end));
+  btn.addEventListener('click', (e) => { if (triggered){ e.stopImmediatePropagation(); e.preventDefault(); triggered=false; } }, true);
+}
 
 function skillIcon(skill){
   switch(skill.effect_type){
@@ -480,7 +519,7 @@ function buildBattleUnit(entry, side, waveIndex){
   const eff = computeEffective(entry.unit, entry.level, entry.star);
   const skills = [...entry.activeSkillIds].map(sid => {
     const s = skillOf(sid);
-    return { id:s.id, name:s.name, target_type:s.target_type, effect_type:s.effect_type, power:s.power,
+    return { id:s.id, name:s.name, description:s.description, target_type:s.target_type, effect_type:s.effect_type, power:s.power,
       duration_turns:s.duration_turns, cooldown_turns:s.cooldown_turns, is_melee:s.is_melee, buff_stat:s.buff_stat,
       elementIds: (s.skill_elements||[]).map(se=>se.element_id) };
   });
@@ -570,14 +609,30 @@ function unitSlotHtml(u){
         <div class="sprite" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
       <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
+      <span class="pos-badge ${u.position==='front'?'front':''}">${u.position==='front'?'Front':'Hinten'}</span>
       <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
       <div class="buffs" data-buffs="${u.uid}">${buffsText(u)}</div>
     </div>`;
 }
 
+// Front-Reihen zeigen zueinander (Richtung Strasse/Mitte): Gegner-Front unten im Gegner-Block,
+// eigene Front oben im eigenen Block. Gegner sieht man von vorne, eigene Truppen von hinten.
 function buildField(){
-  playerFieldEl.innerHTML = battleUnits.filter(u=>u.side==='player').map(unitSlotHtml).join('');
-  enemyFieldEl.innerHTML = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex).map(unitSlotHtml).join('');
+  const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
+  const enemyBack = enemies.filter(u=>u.position!=='front');
+  const enemyFront = enemies.filter(u=>u.position==='front');
+  enemyFieldEl.innerHTML = `
+    <div class="sub-row">${enemyBack.map(unitSlotHtml).join('')}</div>
+    <div class="sub-row">${enemyFront.map(unitSlotHtml).join('')}</div>
+  `;
+
+  const players = battleUnits.filter(u=>u.side==='player');
+  const playerFront = players.filter(u=>u.position==='front');
+  const playerBack = players.filter(u=>u.position!=='front');
+  playerFieldEl.innerHTML = `
+    <div class="sub-row">${playerFront.map(unitSlotHtml).join('')}</div>
+    <div class="sub-row">${playerBack.map(unitSlotHtml).join('')}</div>
+  `;
 }
 // Rückwärtskompatibler Alias (frühere Aufrufe im Code)
 function renderField(){ buildField(); }
@@ -839,10 +894,14 @@ function waitForPlayerAction(actor){
       const badgeText = ready ? (s.cooldown_turns>0 ? `CD ${s.cooldown_turns}` : 'bereit') : `${cdLeft} Rd.`;
       return `
       <div class="round-skill-wrap">
+        <div class="elem-dots">${skillElementDots(s)}</div>
         <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
         <div class="round-skill-label">${s.name}</div>
       </div>
     `; }).join('');
+    skillBox.querySelectorAll('.round-skill-btn').forEach(btn => {
+      attachLongPress(btn, actor.skills[+btn.dataset.i]);
+    });
     skillBox.querySelectorAll('.skill-opt:not([disabled])').forEach(btn => {
       btn.addEventListener('click', () => {
         const skill = actor.skills[+btn.dataset.i];
