@@ -268,7 +268,7 @@
       <table>
         <thead><tr>
           <th></th><th>Name</th><th>Typ</th><th>Klasse</th><th>Element</th><th>Seltenheit</th>
-          <th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>MP</th>
+          <th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th>
         </tr></thead>
         <tbody id="units-table-body"></tbody>
       </table>
@@ -291,7 +291,7 @@
       </div>
       <table>
         <thead><tr>
-          <th>Name</th><th>Ziel</th><th>Typ</th><th>Effekt</th><th>Elemente</th><th>MP</th><th>Stärke</th>
+          <th>Name</th><th>Ziel</th><th>Typ</th><th>Effekt</th><th>Elemente</th><th>Cooldown</th><th>Stärke</th>
         </tr></thead>
         <tbody id="skills-table-body"></tbody>
       </table>
@@ -496,7 +496,6 @@ function renderUnitsTable(){
       <td class="mono">${u.base_atk}</td>
       <td class="mono">${u.base_def}</td>
       <td class="mono">${u.base_spd}</td>
-      <td class="mono">${u.base_mp}</td>
     </tr>`).join('') || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px;">Noch keine Einheiten angelegt.</td></tr>`;
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
@@ -533,8 +532,8 @@ function openUnitDrawer(unit){
   const isNew = !unit;
   const u = unit || {
     name:'', is_playable:true, class_id:CLASSES[0]?.id, element_id:ELEMENTS[0]?.id, rarity_id:RARITIES[0]?.id,
-    style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10, base_mp:20,
-    growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5, growth_mp:1,
+    style:'', description:'', base_hp:50, base_atk:10, base_def:10, base_spd:10,
+    growth_hp:5, growth_atk:1, growth_def:1, growth_spd:0.5,
     xp_multiplier:1.0,
     area_tag:'', is_mini_boss:false, is_boss:false
   };
@@ -601,7 +600,6 @@ function openUnitDrawer(unit){
     </div>
     <div class="row2">
       <div class="field"><label>SPD</label><input type="number" id="f-spd" value="${u.base_spd}" /></div>
-      <div class="field"><label>MP</label><input type="number" id="f-mp" value="${u.base_mp}" /></div>
     </div>
 
     <h3 style="font-size:14px;margin-top:22px;">Wachstum pro Level</h3>
@@ -612,7 +610,6 @@ function openUnitDrawer(unit){
     </div>
     <div class="row2">
       <div class="field"><label>SPD/Lvl</label><input type="number" step="0.1" id="f-g-spd" value="${u.growth_spd}" /></div>
-      <div class="field"><label>MP/Lvl</label><input type="number" step="0.1" id="f-g-mp" value="${u.growth_mp}" /></div>
     </div>
 
     <div id="field-encounter-fields">
@@ -681,12 +678,10 @@ function openUnitDrawer(unit){
       base_atk: +document.getElementById('f-atk').value,
       base_def: +document.getElementById('f-def').value,
       base_spd: +document.getElementById('f-spd').value,
-      base_mp: +document.getElementById('f-mp').value,
       growth_hp: +document.getElementById('f-g-hp').value,
       growth_atk: +document.getElementById('f-g-atk').value,
       growth_def: +document.getElementById('f-g-def').value,
       growth_spd: +document.getElementById('f-g-spd').value,
-      growth_mp: +document.getElementById('f-g-mp').value,
       xp_multiplier: +document.getElementById('f-xp-mult').value,
       area_tag: document.getElementById('f-area').value,
       is_mini_boss: document.getElementById('f-minib').checked,
@@ -766,7 +761,7 @@ function renderSkillsTable(){
       <td><span class="badge ${s.is_melee?'monster':'hero'}">${s.is_melee?'Nahkampf':'Fernkampf/Magie'}</span></td>
       <td>${EFFECT_LABELS[s.effect_type] || s.effect_type}${s.buff_stat ? ` (${s.buff_stat.toUpperCase()})` : ''}</td>
       <td>${elNames}</td>
-      <td class="mono">${s.mp_cost}</td>
+      <td class="mono">${s.cooldown_turns}</td>
       <td class="mono">${s.power}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px;">Keine Skills gefunden.</td></tr>`;
@@ -783,7 +778,7 @@ document.getElementById('skill-effect-filter').addEventListener('change', render
 
 function openSkillDrawer(skill){
   const isNew = !skill;
-  const s = skill || { name:'', description:'', mp_cost:10, target_type:'single_enemy', effect_type:'damage', power:100, duration_turns:null, is_melee:false, buff_stat:null, skill_elements:[] };
+  const s = skill || { name:'', description:'', cooldown_turns:2, target_type:'single_enemy', effect_type:'damage', power:100, duration_turns:null, is_melee:false, buff_stat:null, skill_elements:[] };
   const activeElIds = (s.skill_elements||[]).map(se => se.element_id ?? se.id);
 
   document.getElementById('drawer').innerHTML = `
@@ -805,7 +800,7 @@ function openSkillDrawer(skill){
     </div>
 
     <div class="row3">
-      <div class="field"><label>MP-Kosten</label><input type="number" id="s-mp" value="${s.mp_cost}" /></div>
+      <div class="field"><label>Cooldown (Runden, 0 = Basisangriff)</label><input type="number" id="s-cooldown" value="${s.cooldown_turns}" min="0" /></div>
       <div class="field"><label>Stärke</label><input type="number" id="s-power" value="${s.power}" /></div>
       <div class="field"><label>Dauer (Runden)</label><input type="number" id="s-duration" value="${s.duration_turns ?? ''}" /></div>
     </div>
@@ -814,7 +809,7 @@ function openSkillDrawer(skill){
       <label>Betroffener Stat (bei Buff/Debuff)</label>
       <select id="s-buffstat">
         <option value="">— kein Stat-Buff/Debuff —</option>
-        ${['hp','atk','def','spd','mp','crit_chance'].map(v => `<option value="${v}" ${s.buff_stat===v?'selected':''}>${v.toUpperCase()}</option>`).join('')}
+        ${['hp','atk','def','spd','crit_chance'].map(v => `<option value="${v}" ${s.buff_stat===v?'selected':''}>${v.toUpperCase()}</option>`).join('')}
       </select>
     </div>
 
@@ -853,7 +848,7 @@ function openSkillDrawer(skill){
       description: document.getElementById('s-desc').value,
       target_type: document.getElementById('s-target').value,
       effect_type: document.getElementById('s-effect').value,
-      mp_cost: +document.getElementById('s-mp').value,
+      cooldown_turns: +document.getElementById('s-cooldown').value,
       power: +document.getElementById('s-power').value,
       duration_turns: document.getElementById('s-duration').value ? +document.getElementById('s-duration').value : null,
       is_melee: document.getElementById('s-melee').checked,
@@ -903,7 +898,7 @@ document.getElementById('tree-unit-select').addEventListener('change', async (e)
 async function renderLearnableSkills(unitId){
   const unit = UNITS.find(u => u.id === unitId);
   const { data, error } = await supabase.from('unit_learnable_skills')
-    .select('unit_id, skill_id, unlock_level, required_star_level, skills(name, mp_cost, power, target_type, effect_type)')
+    .select('unit_id, skill_id, unlock_level, required_star_level, skills(name, cooldown_turns, power, target_type, effect_type)')
     .eq('unit_id', unitId).order('unlock_level');
   if (error) { console.error(error); return; }
   const learnable = data || [];
@@ -926,7 +921,7 @@ async function renderLearnableSkills(unitId){
       <h3>Lernbarer Skill-Pool von ${unit.name}</h3>
       <p style="color:var(--muted);font-size:13px;margin:0 0 14px;">Skills, die dieser Held lernen kann. Ab dem angegebenen Level (und optional ab einer Stern-Stufe) wird der Skill verfügbar; im Spiel wählt man daraus bis zu ${unit.active_skill_slots ?? 4} aktive Skills aus.</p>
       <table>
-        <thead><tr><th>Skill</th><th>Ab Level</th><th>Ab Stern</th><th>MP</th><th>Stärke</th><th></th></tr></thead>
+        <thead><tr><th>Skill</th><th>Ab Level</th><th>Ab Stern</th><th>Cooldown</th><th>Stärke</th><th></th></tr></thead>
         <tbody id="learnable-skills-body"></tbody>
       </table>
       <div class="add-skill-row" style="margin-top:16px;">
@@ -946,7 +941,7 @@ async function renderLearnableSkills(unitId){
       <td><strong>${l.skills?.name ?? '—'}</strong></td>
       <td class="mono">${l.unlock_level}</td>
       <td class="mono">${l.required_star_level}★</td>
-      <td class="mono">${l.skills?.mp_cost ?? '—'}</td>
+      <td class="mono">${l.skills?.cooldown_turns ?? '—'}</td>
       <td class="mono">${l.skills?.power ?? '—'}</td>
       <td><button class="danger remove-learnable-btn" data-skill-id="${l.skill_id}" style="padding:4px 10px;font-size:12px;">Entfernen</button></td>
     </tr>
@@ -994,8 +989,11 @@ const ATTR_CATEGORY_SUGGESTIONS = {
     ['boss_damage_reduction','Reduzierter Boss-Schaden'], ['debuff_resist','Debuff-Resistenz'],
   ],
   SUP: [
-    ['mp','MP'], ['spd','SPD (Geschwindigkeit)'], ['heal_power','Heilkraft'],
-    ['buff_duration','Buff-Dauer'], ['mp_cost_reduction','MP-Kostenreduktion'],
+    ['spd','SPD (Geschwindigkeit)'], ['heal_power','Heilkraft'], ['buff_duration','Buff-/Debuff-Dauer'],
+    ['evasion','Ausweichchance'], ['debuff_resist','Debuff-Resistenz'], ['first_strike','Erstschlag-Chance'],
+    ['heal_priority','Heilungs-Priorisierung (Rettungsanker)'], ['heal_over_time','HP-Regen nach Heilung'],
+    ['cc_immune_support','CC-Immunität für Support-Effekte'], ['cooldown_reduction','Cooldown-Reduktion'],
+    ['bonus_target','Bonus-Ziel für Heilung/Buffs'],
   ],
 };
 
