@@ -39,6 +39,14 @@
   .status-bar strong{color:var(--gold);}
 
   .map-wrap{overflow:auto; border:1px solid var(--line); border-radius:10px; background:#000; max-height:70vh;}
+  .dpad{position:fixed; bottom:20px; right:20px; z-index:40; display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); gap:4px;}
+  .dpad-btn{font-size:20px; border-radius:10px; background:rgba(43,39,29,.9); border:1px solid var(--line); color:var(--gold); display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation;}
+  .dpad-btn:active{background:var(--gold-soft); color:#1a1712;}
+  .dpad-btn.dpad-up{grid-column:2; grid-row:1;}
+  .dpad-btn.dpad-left{grid-column:1; grid-row:2;}
+  .dpad-btn.dpad-center{grid-column:2; grid-row:2; background:transparent; border:none; cursor:default;}
+  .dpad-btn.dpad-right{grid-column:3; grid-row:2;}
+  .dpad-btn.dpad-down{grid-column:2; grid-row:3;}
   .map-grid{display:grid; position:relative;}
   .tile{position:relative;}
   .tile{position:relative;}
@@ -106,6 +114,13 @@
     </div>
     <div class="map-wrap"><div class="map-grid" id="explore-grid"></div></div>
     <p class="footer-note">Tippe auf ein angrenzendes Feld, um dich zu bewegen. Gestrichelte Felder = Encounter-Zone (Zufallskampf-Chance bei jedem Schritt darauf).</p>
+    <div class="dpad" id="dpad">
+      <button class="dpad-btn dpad-up" data-dx="0" data-dy="-1">▲</button>
+      <button class="dpad-btn dpad-left" data-dx="-1" data-dy="0">◀</button>
+      <div class="dpad-btn dpad-center"></div>
+      <button class="dpad-btn dpad-right" data-dx="1" data-dy="0">▶</button>
+      <button class="dpad-btn dpad-down" data-dx="0" data-dy="1">▼</button>
+    </div>
   </section>
 </main>
 
@@ -128,7 +143,7 @@ const GROUND_COLOR = { gras:'#2f5233', wueste:'#c9a86a', sumpf:'#54613f', hoelle
 const PATH_COLOR = { weg:'#a68a5b', fluss:'#2f6f96', lavafluss:'#c9481f', bruecke:'#8a6339' };
 const OBJECT_COLOR = { berg:'#6b6b6b', baum:'#1f4a24' };
 const WEG_GROUP = ['weg','bruecke'];
-const TILE_PX = 40;
+const TILE_PX = 52;
 
 function pathConnects(a,b){ if(!a||!b) return false; if (WEG_GROUP.includes(a)&&WEG_GROUP.includes(b)) return true; return a===b; }
 function objectConnects(a,b){ return !!a && !!b && a===b; }
@@ -390,6 +405,13 @@ document.addEventListener('keydown', (e) => {
   if (!move) return;
   e.preventDefault();
   tryMove(playerX+move[0], playerY+move[1]);
+});
+
+document.querySelectorAll('.dpad-btn[data-dx]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!currentMap) return;
+    tryMove(playerX + (+btn.dataset.dx), playerY + (+btn.dataset.dy));
+  });
 });
 
 // ---------- Encounter → Übergabe zum Kampf ----------
