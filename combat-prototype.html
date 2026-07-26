@@ -68,7 +68,6 @@
   .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
   .u-barfill.hp{background:var(--hp, #4caf50);}
   .u-barfill.hp.low{background:#c94a3a;}
-  .u-barfill.mp{background:var(--mp, #3d8ec9);}
   .u-barnum{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:7.5px; font-weight:700; color:#fff; text-shadow:1px 1px 0 rgba(0,0,0,.8);}
 
   .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
@@ -127,11 +126,13 @@
   }
   .round-skill-btn:hover:not(:disabled){border-color:var(--gold);}
   .round-skill-btn:disabled{opacity:.35; cursor:not-allowed;}
-  .round-skill-btn .mp-badge{
+  .round-skill-btn .cd-badge{
     position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
-    font-size:9px; background:var(--mp); color:#fff; border-radius:100px; padding:1px 6px; font-weight:700;
+    font-size:9px; background:var(--gold-soft); color:#1a1712; border-radius:100px; padding:1px 6px; font-weight:700;
     white-space:nowrap;
   }
+  .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
+  .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
   .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
   .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
   #skill-choices.round-mode{display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
@@ -303,7 +304,7 @@ function elementModifierSingle(attackerElemId, defenderElemId){
 // STAT-BERECHNUNG (Level + Seltenheit + Stern)
 // ============================================================
 function computeEffective(unit, level, star){
-  const rar = rarityOf(unit.rarity_id) || { stat_multiplier:1, mp_regen_per_turn:2 };
+  const rar = rarityOf(unit.rarity_id) || { stat_multiplier:1 };
   const starMult = 1 + 0.20*(star-1);
   const calc = (base, growth) => Math.round(base + growth*(level-1)) * rar.stat_multiplier * starMult;
   return {
@@ -311,8 +312,6 @@ function computeEffective(unit, level, star){
     atk: Math.round(calc(unit.base_atk, unit.growth_atk)),
     def: Math.round(calc(unit.base_def, unit.growth_def)),
     spd: Math.round(calc(unit.base_spd, unit.growth_spd)),
-    maxMp: Math.round(calc(unit.base_mp, unit.growth_mp)),
-    mpRegen: rar.mp_regen_per_turn ?? 2,
   };
 }
 
@@ -406,7 +405,7 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
       </label>
       <button class="danger r-remove" style="border-color:var(--danger);color:#e0a294;">Entfernen</button>
       <div class="skill-toggle" style="width:100%;">
-        ${learnable.map(l => `<span class="skill-chip ${entry.activeSkillIds.has(l.skill_id)?'on':''}" data-skill="${l.skill_id}">${l.skill.name} (${l.skill.mp_cost} MP)</span>`).join('') || '<span style="color:var(--muted);font-size:11px;">Keine Skills bei diesem Level/Stern verfügbar.</span>'}
+        ${learnable.map(l => `<span class="skill-chip ${entry.activeSkillIds.has(l.skill_id)?'on':''}" data-skill="${l.skill_id}">${l.skill.name} (CD ${l.skill.cooldown_turns})</span>`).join('') || '<span style="color:var(--muted);font-size:11px;">Keine Skills bei diesem Level/Stern verfügbar.</span>'}
       </div>
     </div>`;
   }).join('') || `<div style="color:var(--muted);font-size:13px;">Noch keine Einheiten ausgewählt.</div>`;
@@ -482,16 +481,16 @@ function buildBattleUnit(entry, side, waveIndex){
   const skills = [...entry.activeSkillIds].map(sid => {
     const s = skillOf(sid);
     return { id:s.id, name:s.name, target_type:s.target_type, effect_type:s.effect_type, power:s.power,
-      duration_turns:s.duration_turns, mp_cost:s.mp_cost, is_melee:s.is_melee, buff_stat:s.buff_stat,
+      duration_turns:s.duration_turns, cooldown_turns:s.cooldown_turns, is_melee:s.is_melee, buff_stat:s.buff_stat,
       elementIds: (s.skill_elements||[]).map(se=>se.element_id) };
   });
   return {
     uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
     name: entry.unit.name, side, position: entry.position, waveIndex: waveIndex ?? 0,
     classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
-    maxHp: eff.maxHp, hp: eff.maxHp, maxMp: eff.maxMp, mp: eff.maxMp,
-    atk: eff.atk, def: eff.def, spd: eff.spd, mpRegen: eff.mpRegen,
-    skills, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
+    maxHp: eff.maxHp, hp: eff.maxHp,
+    atk: eff.atk, def: eff.def, spd: eff.spd,
+    skills, skillCooldowns: {}, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
     level: entry.level,
   };
 }
@@ -564,7 +563,6 @@ function unitSlotHtml(u){
     ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" />`
     : icon;
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
-  const mpPct = Math.max(0, u.mp/u.maxMp*100);
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
       <div class="sprite-wrap">
@@ -573,7 +571,6 @@ function unitSlotHtml(u){
       </div>
       <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
       <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
-      <div class="u-barwrap"><div class="u-barfill mp" data-mpbar="${u.uid}" style="width:${mpPct}%"></div><div class="u-barnum" data-mptext="${u.uid}">${Math.round(u.mp)}/${u.maxMp}</div></div>
       <div class="buffs" data-buffs="${u.uid}">${buffsText(u)}</div>
     </div>`;
 }
@@ -590,12 +587,9 @@ function updateUnitVisual(u){
   if (!slot) return;
   slot.classList.toggle('dead', u.hp<=0);
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
-  const mpPct = Math.max(0, u.mp/u.maxMp*100);
   const hpBar = slot.querySelector('[data-hpbar]');
   hpBar.style.width = hpPct+'%'; hpBar.classList.toggle('low', hpPct<30);
   slot.querySelector('[data-hptext]').textContent = `${Math.max(0,Math.round(u.hp))}/${u.maxHp}`;
-  slot.querySelector('[data-mpbar]').style.width = mpPct+'%';
-  slot.querySelector('[data-mptext]').textContent = `${Math.round(u.mp)}/${u.maxMp}`;
   slot.querySelector('[data-buffs]').textContent = buffsText(u);
   const sprite = slot.querySelector('.sprite');
   let shieldEl = sprite.querySelector('[data-shield]');
@@ -671,7 +665,7 @@ function validTargets(actor, skill){
 }
 
 function resolveAction(actor, skill, targets){
-  actor.mp -= skill.mp_cost;
+  if (skill.cooldown_turns > 0) actor.skillCooldowns[skill.id] = skill.cooldown_turns;
   const results = [];
   if (skill.effect_type==='revive'){
     const dead = deadOf(actor.side);
@@ -738,9 +732,11 @@ function resolveAction(actor, skill, targets){
   return results;
 }
 
+function isReady(actor, skill){ return !(actor.skillCooldowns[skill.id] > 0); }
+
 function pickAIAction(actor){
-  const affordable = actor.skills.filter(s=>s.mp_cost<=actor.mp);
-  const pool = affordable.length ? affordable : actor.skills.filter(s=>s.mp_cost===0);
+  const ready = actor.skills.filter(s=>isReady(actor, s));
+  const pool = ready.length ? ready : actor.skills.filter(s=>s.cooldown_turns===0);
   if (!pool.length) return null;
   const skill = pool[Math.floor(Math.random()*pool.length)];
   const targets = validTargets(actor, skill);
@@ -768,11 +764,9 @@ function advanceWave(){
   log('sys', `⚔ Welle ${currentWaveIndex} besiegt! Ihr zieht die Strasse weiter — Welle ${currentWaveIndex+1} von ${waveChunks.length} erscheint.`);
   aliveOf('player').forEach(u => {
     const healAmt = Math.round(u.maxHp*0.15);
-    const mpAmt = Math.round(u.maxMp*0.15);
     u.hp = Math.min(u.maxHp, u.hp+healAmt);
-    u.mp = Math.min(u.maxMp, u.mp+mpAmt);
   });
-  log('sys', `Kurze Verschnaufpause: Team regeneriert 15% HP/MP.`);
+  log('sys', `Kurze Verschnaufpause: Team regeneriert 15% HP.`);
   const nextWave = waveChunks[currentWaveIndex].map(e=>buildBattleUnit(e,'enemy',currentWaveIndex));
   battleUnits.push(...nextWave);
   updateWaveIndicator();
@@ -784,11 +778,17 @@ function updateWaveIndicator(){
   if (el) el.textContent = `Welle ${currentWaveIndex+1} von ${waveChunks.length}`;
 }
 
+function tickCooldowns(u){
+  Object.keys(u.skillCooldowns).forEach(id => {
+    if (u.skillCooldowns[id] > 0) u.skillCooldowns[id]--;
+  });
+}
+
 async function battleLoop(){
   while (!battleOver){
     currentActor = getNextActor();
     if (!currentActor.alive) continue;
-    currentActor.mp = Math.min(currentActor.maxMp, currentActor.mp + currentActor.mpRegen);
+    tickCooldowns(currentActor);
     tickBuffs(currentActor);
     highlightActive(currentActor);
     updateUnitVisual(currentActor);
@@ -824,24 +824,28 @@ async function battleLoop(){
 
 function waitForPlayerAction(actor){
   return new Promise(resolve => {
-    const affordable = actor.skills.filter(s=>s.mp_cost<=actor.mp);
     actionPanelEl.style.display = 'block';
     actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row round-mode" id="skill-choices"></div><p id="target-hint" style="font-size:11px;color:var(--gold);margin:8px 0 0;display:none;">👆 Ziel im Kampffeld antippen…</p>`;
     const skillBox = document.getElementById('skill-choices');
-    if (!affordable.length){
-      skillBox.innerHTML = `<span style="color:var(--muted);font-size:12px;">Keine bezahlbare Fähigkeit — Zug wird übersprungen.</span>`;
-      setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,mp_cost:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
+    const anyReady = actor.skills.some(s=>isReady(actor, s));
+    if (!anyReady){
+      skillBox.innerHTML = `<span style="color:var(--muted);font-size:12px;">Alle Fähigkeiten im Cooldown — Zug wird übersprungen.</span>`;
+      setTimeout(()=>{ actionPanelEl.style.display='none'; resolve({skill:{effect_type:'damage',power:0,cooldown_turns:0,target_type:'self',elementIds:[]}, targets:[actor]}); }, 600);
       return;
     }
-    skillBox.innerHTML = affordable.map((s,i) => `
+    skillBox.innerHTML = actor.skills.map((s,i) => {
+      const ready = isReady(actor, s);
+      const cdLeft = actor.skillCooldowns[s.id] || 0;
+      const badgeText = ready ? (s.cooldown_turns>0 ? `CD ${s.cooldown_turns}` : 'bereit') : `${cdLeft} Rd.`;
+      return `
       <div class="round-skill-wrap">
-        <button class="round-skill-btn skill-opt" data-i="${i}">${skillIcon(s)}<span class="mp-badge">${s.mp_cost} MP</span></button>
+        <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
         <div class="round-skill-label">${s.name}</div>
       </div>
-    `).join('');
-    skillBox.querySelectorAll('.skill-opt').forEach(btn => {
+    `; }).join('');
+    skillBox.querySelectorAll('.skill-opt:not([disabled])').forEach(btn => {
       btn.addEventListener('click', () => {
-        const skill = affordable[+btn.dataset.i];
+        const skill = actor.skills[+btn.dataset.i];
         const targets = validTargets(actor, skill);
         if (skill.target_type==='all_allies' || skill.target_type==='all_enemies' || skill.target_type==='self'){
           actionPanelEl.style.display='none';
