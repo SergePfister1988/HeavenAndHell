@@ -33,7 +33,7 @@
   .unit-pick-card:hover{border-color:var(--gold-soft);}
   .unit-pick-card.selected{border-color:var(--gold); background:var(--surface-2);}
   .upthumb{width:100%; height:56px; border-radius:6px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:6px; overflow:hidden;}
-  .upthumb img{width:100%; height:100%; object-fit:cover;}
+  .upthumb img{width:100%; height:100%; object-fit:cover; object-position:top;}
   .upname{font-weight:600; font-size:12.5px;}
   .upbadges{display:flex; gap:4px; margin:4px 0; flex-wrap:wrap;}
   .up-badge{font-size:9px; font-weight:700; color:#1a1712; border-radius:100px; padding:1px 7px;}
@@ -599,7 +599,7 @@ function unitSlotHtml(u){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
   const visual = u.spriteUrl
-    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" />`
+    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:6px;" />`
     : icon;
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   return `
