@@ -184,7 +184,7 @@
   .skill-tooltip strong{color:var(--gold); display:block; margin-bottom:3px; font-size:12.5px;}
   .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
   .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
-  #skill-choices.round-mode{display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
+  #skill-choices.round-mode{display:flex; gap:34px; row-gap:20px; justify-content:center; align-items:flex-start; flex-wrap:wrap; padding:0 6px;}
 
   /* ---------- Querformat-Optimierung ---------- */
   @media (orientation: landscape) and (max-height: 500px){
@@ -326,7 +326,10 @@ function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
 function skillOf(id){ return SKILLS.find(s=>s.id===id); }
 
 function skillElementRingHtml(skill){
-  if (!skill.elementIds || !skill.elementIds.length) return '';
+  if (!skill.elementIds || !skill.elementIds.length){
+    // Kein Element (Basisangriff o.ä.) -> neutraler silberner Ring statt gar keinem
+    return `<div class="elem-ring-btn fallback" style="background:conic-gradient(#7d7d7d, #d8d8d8, #9a9a9a, #d8d8d8, #7d7d7d);"></div>`;
+  }
   const ids = skill.elementIds.slice(0,2);
   const hasImages = ids.every(id => ELEMENT_RING_IMAGES[id]);
   if (hasImages){
