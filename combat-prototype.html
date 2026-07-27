@@ -169,8 +169,11 @@
     position:absolute; inset:-6px; border-radius:50%; z-index:0;
     -webkit-mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
     mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
-    box-shadow:0 0 8px rgba(255,255,255,.25);
+    box-shadow:0 0 8px rgba(255,255,255,.25); overflow:hidden;
   }
+  .elem-ring-btn img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .elem-ring-btn img.ring-left{clip-path:inset(0 50% 0 0);}
+  .elem-ring-btn img.ring-right{clip-path:inset(0 0 0 50%);}
   .round-skill-btn{ z-index:1; }
   .skill-tooltip{
     position:fixed; z-index:200; max-width:220px; background:var(--surface); border:1px solid var(--gold-soft);
@@ -293,10 +296,10 @@ const XP_BASE_FACTOR = 8; // Standard-XP bei Level L = 8 * L^1.5
 const ELEMENT_BADGE_COLORS = { 'Feuer':'#d9705a', 'Wasser':'#5ea3cf', 'Erde':'#b89968', 'Luft':'#eef1ea' };
 let battleSpeed = 1;
 
-let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={};
+let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={}, ELEMENT_RING_IMAGES={};
 
 async function loadAll(){
-  const [el, elr, cl, clr, ra, sk, un, ls] = await Promise.all([
+  const [el, elr, cl, clr, ra, sk, un, ls, ring] = await Promise.all([
     supabase.from('elements').select('*'),
     supabase.from('element_relations').select('*'),
     supabase.from('classes').select('*'),
@@ -305,11 +308,14 @@ async function loadAll(){
     supabase.from('skills').select('*, skill_elements(element_id)'),
     supabase.from('units').select('*'),
     supabase.from('unit_learnable_skills').select('*'),
+    supabase.from('element_rings').select('*'),
   ]);
   ELEMENTS = el.data||[]; ELEMENT_RELATIONS = elr.data||[]; CLASSES = cl.data||[]; CLASS_RELATIONS = clr.data||[];
   RARITIES = ra.data||[]; SKILLS = sk.data||[]; UNITS = un.data||[];
   LEARNABLE = {};
   (ls.data||[]).forEach(row => { (LEARNABLE[row.unit_id] = LEARNABLE[row.unit_id]||[]).push(row); });
+  ELEMENT_RING_IMAGES = {};
+  (ring.data||[]).forEach(r => { ELEMENT_RING_IMAGES[r.element_id] = r.image_url; });
   document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills geladen`;
 }
 
@@ -318,13 +324,25 @@ function classOf(id){ return CLASSES.find(c=>c.id===id); }
 function elementOf(id){ return ELEMENTS.find(e=>e.id===id); }
 function skillOf(id){ return SKILLS.find(s=>s.id===id); }
 
-function skillElementRingStyle(skill){
+function skillElementRingHtml(skill){
   if (!skill.elementIds || !skill.elementIds.length) return '';
-  const colors = skill.elementIds.map(id => ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888').slice(0,2);
+  const ids = skill.elementIds.slice(0,2);
+  const hasImages = ids.every(id => ELEMENT_RING_IMAGES[id]);
+  if (hasImages){
+    if (ids.length>1){
+      return `<div class="elem-ring-btn">
+        <img class="ring-half ring-left" src="${ELEMENT_RING_IMAGES[ids[0]]}" alt="" />
+        <img class="ring-half ring-right" src="${ELEMENT_RING_IMAGES[ids[1]]}" alt="" />
+      </div>`;
+    }
+    return `<div class="elem-ring-btn"><img class="ring-full" src="${ELEMENT_RING_IMAGES[ids[0]]}" alt="" /></div>`;
+  }
+  // Fallback ohne hochgeladenes Bild: einfacher Farbverlauf
+  const colors = ids.map(id => ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888');
   const gradient = colors.length>1
     ? `conic-gradient(${colors[0]} 0deg 180deg, ${colors[1]} 180deg 360deg)`
     : `conic-gradient(${colors[0]} 0deg 360deg)`;
-  return `background:${gradient};`;
+  return `<div class="elem-ring-btn" style="background:${gradient};"></div>`;
 }
 
 function attachLongPress(btn, skill){
@@ -945,7 +963,7 @@ function waitForPlayerAction(actor){
       return `
       <div class="round-skill-wrap">
         <div class="skill-ring-holder">
-          ${s.elementIds && s.elementIds.length ? `<div class="elem-ring-btn" style="${skillElementRingStyle(s)}"></div>` : ''}
+          ${skillElementRingHtml(s)}
           <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
         </div>
         <div class="round-skill-label">${s.name}</div>
