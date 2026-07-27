@@ -240,6 +240,7 @@
     <button class="nav-btn" data-view="tree">📖 Lernbare Skills</button>
     <button class="nav-btn" data-view="attrtree">◆ Attribut-Bäume</button>
     <button class="nav-btn" data-view="maps">🗺 Karten-Editor</button>
+    <button class="nav-btn" data-view="rings">🔥 Element-Ringe</button>
     <button class="nav-btn" data-view="backup">💾 Backup</button>
     <div class="spacer"></div>
     <button class="nav-btn ghost" id="logout-btn">↩ Abmelden</button>
@@ -346,6 +347,17 @@
       <div id="map-editor-content"><div class="empty-hint">Wähle oben eine Karte oder erstelle eine neue.</div></div>
     </section>
 
+    <!-- ---------- ELEMENT RINGS VIEW ---------- -->
+    <section class="view" id="view-rings">
+      <div class="view-header">
+        <div>
+          <h2>Element-Ringe</h2>
+          <p>Ein Bild pro Element — wird im Kampf als Ring um den jeweiligen Skill-Button gelegt. Bei Skills mit 2 Elementen wird jedes Bild zur Hälfte gezeigt.</p>
+        </div>
+      </div>
+      <div class="shape-slots" id="ring-upload-slots"></div>
+    </section>
+
     <!-- ---------- BACKUP VIEW ---------- -->
     <section class="view" id="view-backup">
       <div class="view-header">
@@ -435,6 +447,7 @@ document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if (btn.dataset.view === 'attrtree') renderAttributeTree();
     if (btn.dataset.view === 'maps') { loadMapsList(); loadTilesets(); }
+    if (btn.dataset.view === 'rings') renderRingUploadSlots();
   });
 });
 
@@ -1212,6 +1225,49 @@ function connectorHtml(grid, x, y, type, color, connectFn){
 
 let currentMap = null;
 let TILESETS = {}; // key "layer:type:shape" -> image_url
+
+// ============================================================
+// ELEMENT-RINGE
+// ============================================================
+let ELEMENT_RINGS = {};
+
+async function loadElementRings(){
+  const { data } = await supabase.from('element_rings').select('*');
+  ELEMENT_RINGS = {};
+  (data||[]).forEach(r => { ELEMENT_RINGS[r.element_id] = r.image_url; });
+}
+
+async function renderRingUploadSlots(){
+  await loadElementRings();
+  const box = document.getElementById('ring-upload-slots');
+  box.innerHTML = ELEMENTS.map(e => `
+    <div class="shape-slot">
+      <div class="shape-thumb" data-elem="${e.id}" style="${ELEMENT_RINGS[e.id]?`background-image:url('${ELEMENT_RINGS[e.id]}');`:''}">${ELEMENT_RINGS[e.id]?'':'+'}</div>
+      <label>${e.name}</label>
+      <input type="file" accept="image/*" data-ring-input="${e.id}" />
+    </div>
+  `).join('');
+  box.querySelectorAll('.shape-thumb').forEach(thumb => {
+    const elemId = thumb.dataset.elem;
+    const input = thumb.parentElement.querySelector(`input[data-ring-input="${elemId}"]`);
+    thumb.addEventListener('click', () => input.click());
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const path = `ring-${elemId}-${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('tile-assets').upload(path, file, { upsert:true });
+        if (upErr) throw upErr;
+        const { data } = supabase.storage.from('tile-assets').getPublicUrl(path);
+        await supabase.from('element_rings').upsert({ element_id: +elemId, image_url: data.publicUrl }, { onConflict: 'element_id' });
+        await renderRingUploadSlots();
+      } catch (err) {
+        alert('Fehler beim Hochladen: ' + err.message);
+      }
+    });
+  });
+}
 
 async function loadTilesets(){
   const { data } = await supabase.from('tilesets').select('*');
