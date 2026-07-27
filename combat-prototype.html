@@ -165,13 +165,14 @@
   .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
   .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
   .skill-ring-holder{position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;}
-  .elem-ring-btn{
-    position:absolute; inset:-6px; border-radius:50%; z-index:0;
-    -webkit-mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
-    mask-image: radial-gradient(circle, transparent 63%, #000 68%, #000 100%);
-    box-shadow:0 0 8px rgba(255,255,255,.25); overflow:hidden;
+  .elem-ring-btn{position:absolute; inset:-16px; z-index:0; pointer-events:none;}
+  .elem-ring-btn.fallback{
+    border-radius:50%; overflow:hidden;
+    -webkit-mask-image: radial-gradient(circle, transparent 60%, #000 65%, #000 100%);
+    mask-image: radial-gradient(circle, transparent 60%, #000 65%, #000 100%);
+    box-shadow:0 0 8px rgba(255,255,255,.25);
   }
-  .elem-ring-btn img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .elem-ring-btn img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
   .elem-ring-btn img.ring-left{clip-path:inset(0 50% 0 0);}
   .elem-ring-btn img.ring-right{clip-path:inset(0 0 0 50%);}
   .round-skill-btn{ z-index:1; }
@@ -337,12 +338,12 @@ function skillElementRingHtml(skill){
     }
     return `<div class="elem-ring-btn"><img class="ring-full" src="${ELEMENT_RING_IMAGES[ids[0]]}" alt="" /></div>`;
   }
-  // Fallback ohne hochgeladenes Bild: einfacher Farbverlauf
+  // Fallback ohne hochgeladenes Bild: einfacher Farbverlauf (braucht eigene Kreis-Maske)
   const colors = ids.map(id => ELEMENT_BADGE_COLORS[elementOf(id)?.name] || '#888');
   const gradient = colors.length>1
     ? `conic-gradient(${colors[0]} 0deg 180deg, ${colors[1]} 180deg 360deg)`
     : `conic-gradient(${colors[0]} 0deg 360deg)`;
-  return `<div class="elem-ring-btn" style="background:${gradient};"></div>`;
+  return `<div class="elem-ring-btn fallback" style="background:${gradient};"></div>`;
 }
 
 function attachLongPress(btn, skill){
