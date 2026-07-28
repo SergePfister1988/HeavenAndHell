@@ -84,6 +84,7 @@
   .enemy-side .sprite{font-size:18px;}
   .player-side .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
   .enemy-side .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
+  .sprite.has-image{background:rgba(10,9,6,.35);}
   .sprite img.battle-img{width:100%; height:100%; object-fit:contain; image-rendering:pixelated; border-radius:6px;}
   .sprite img.portrait-img{width:100%; height:100%; object-fit:contain; border-radius:6px;}
   .player-side .sprite img{transform:scaleX(-1);}
@@ -678,14 +679,15 @@ function unitSlotHtml(u){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
   let visual = icon;
-  if (u.battleSpriteUrl) visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`;
-  else if (u.spriteUrl) visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`;
+  let hasImage = false;
+  if (u.battleSpriteUrl) { visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`; hasImage = true; }
+  else if (u.spriteUrl) { visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`; hasImage = true; }
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
       <div class="sprite-wrap">
         <div class="shadow"></div>
-        <div class="sprite" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
+        <div class="sprite ${hasImage?'has-image':''}" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
       <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
       <span class="pos-badge ${u.position==='front'?'front':''}">${u.position==='front'?'Front':'Hinten'}</span>
