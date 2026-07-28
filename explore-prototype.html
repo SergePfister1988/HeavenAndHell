@@ -442,7 +442,7 @@ async function triggerEncounter(){
   }
   const teamPayload = teamSetup.map(e => ({ unitId: e.unit.id, level: e.level, star: e.star, position: e.position, activeSkillIds: [...e.activeSkillIds] }));
 
-  sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies }));
+  sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies, battleBackground: currentMap.battle_background || 'gras' }));
   sessionStorage.setItem('hah_return_explore', JSON.stringify({ mapId: currentMap.id, x: playerX, y: playerY, steps, team: teamPayload }));
   document.getElementById('encounter-desc').textContent = `Eine Gruppe von Gegnern (${waveCount} Welle${waveCount>1?'n':''} à 4) versperrt den Weg.`;
   document.getElementById('encounter-overlay').classList.add('show');
