@@ -84,13 +84,14 @@
   .enemy-side .sprite{font-size:18px;}
   .player-side .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
   .enemy-side .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
-  .sprite.has-image{background:rgba(10,9,6,.35);}
+  .sprite.has-image{background:transparent; box-shadow:none;}
   .sprite img.battle-img{width:100%; height:100%; object-fit:contain; image-rendering:pixelated; border-radius:6px;}
   .sprite img.portrait-img{width:100%; height:100%; object-fit:contain; border-radius:6px;}
   .player-side .sprite img{transform:scaleX(-1);}
   .unit-slot.dead .sprite{filter:grayscale(1) brightness(.4); animation:none;}
   .unit-slot.dead{opacity:.5;}
   .unit-slot.active-turn .sprite{box-shadow:0 0 0 2px var(--gold) inset, 0 0 8px var(--gold);}
+  .unit-slot.active-turn .sprite.has-image{box-shadow:none;}
   @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
   .sprite.lunge-left{animation:lungeLeft .4s ease-in-out;}
   @keyframes lungeLeft{0%{transform:translateX(0);}40%{transform:translateX(-42px) scale(1.06);}100%{transform:translateX(0);}}
