@@ -1605,7 +1605,7 @@ function renderMapEditor(){
     </div>
   `;
 
-  document.querySelectorAll('.shape-thumb').forEach(thumb => {
+  box.querySelectorAll('.shape-thumb').forEach(thumb => {
     const shape = thumb.dataset.shape;
     const input = thumb.parentElement.querySelector(`input[data-shape-input="${shape}"]`);
     thumb.addEventListener('click', () => input.click());
