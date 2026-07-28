@@ -50,47 +50,51 @@
   .skill-chip.on{background:var(--gold-soft); border-color:var(--gold-soft); color:#1a1712;}
 
   .arena{
-    position:relative; background:linear-gradient(180deg,#16261c 0%,#0f1a14 100%); border:2px solid #0a120d;
-    border-radius:10px; padding:18px 10px 14px; margin-bottom:16px; overflow:hidden;
+    position:relative; border:2px solid #0a120d; border-radius:10px;
+    margin-bottom:16px; overflow:hidden; min-height:240px; background:#16261c;
   }
-  .road{
-    position:absolute; inset:0;
-    background: repeating-linear-gradient(0deg, #1c2f21 0 20px, #223a28 20px 40px);
-    clip-path: polygon(30% 0%, 70% 0%, 96% 100%, 4% 100%);
+  .arena-bg{position:absolute; inset:0; background-size:cover; background-position:center; z-index:0;}
+  .arena-bg::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.4));}
+  .battle-stage{
+    position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end;
+    min-height:240px; padding:16px 14px 12px; gap:6px;
   }
-  .lane-row{position:relative; z-index:2; display:flex; flex-direction:column; gap:6px; padding:6px 0;}
-  .sub-row{display:flex; justify-content:center; gap:10px; flex-wrap:wrap;}
-  .pos-badge{font-size:7px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:0 5px; margin-top:2px; display:inline-block;}
+  .side-column{display:flex; gap:8px; align-items:flex-end;}
+  .sub-col{display:flex; flex-direction:column; gap:10px; align-items:center;}
+  .pos-badge{font-size:7px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:0 5px; margin-top:2px; display:inline-block; background:rgba(10,9,6,.5);}
   .pos-badge.front{color:var(--gold); border-color:var(--gold-soft);}
-  .unit-slot{display:flex; flex-direction:column; align-items:center; width:88px;}
-  .enemy-row .unit-slot{width:74px;}
-  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center;}
+  .unit-slot{display:flex; flex-direction:column; align-items:center; width:78px;}
+  .enemy-side .unit-slot{width:66px;}
+  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center; text-shadow:1px 1px 2px #000;}
   .level-badge{font-size:8px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 5px; flex-shrink:0;}
-  .u-barwrap{width:80px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; margin-top:3px; position:relative;}
-  .enemy-row .u-barwrap{width:66px; height:9px;}
+  .u-barwrap{width:72px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; margin-top:3px; position:relative;}
+  .enemy-side .u-barwrap{width:60px; height:9px;}
   .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
   .u-barfill.hp{background:var(--hp, #4caf50);}
   .u-barfill.hp.low{background:#c94a3a;}
   .u-barnum{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:7.5px; font-weight:700; color:#fff; text-shadow:1px 1px 0 rgba(0,0,0,.8);}
 
   .sprite-wrap{position:relative; width:52px; height:52px; display:flex; align-items:flex-end; justify-content:center;}
-  .enemy-row .sprite-wrap{width:42px; height:42px;}
+  .enemy-side .sprite-wrap{width:44px; height:44px;}
   .shadow{position:absolute; bottom:-3px; width:60%; height:8px; background:rgba(0,0,0,.5); border-radius:50%; filter:blur(1.5px);}
   .sprite{
     width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px;
     animation: idle 1.8s ease-in-out infinite; box-shadow:0 0 0 2px #000 inset, 0 3px 0 rgba(0,0,0,.4); position:relative;
   }
-  .enemy-row .sprite{font-size:18px;}
-  .hero-row .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
-  .enemy-row .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
+  .enemy-side .sprite{font-size:18px;}
+  .player-side .sprite{background:linear-gradient(160deg,#f0c65a,#c9922e);}
+  .enemy-side .sprite{background:linear-gradient(160deg,#6bb26a,#2f6b3a);}
+  .sprite img.battle-img{width:100%; height:100%; object-fit:contain; image-rendering:pixelated; border-radius:6px;}
+  .sprite img.portrait-img{width:100%; height:100%; object-fit:contain; border-radius:6px;}
+  .player-side .sprite img{transform:scaleX(-1);}
   .unit-slot.dead .sprite{filter:grayscale(1) brightness(.4); animation:none;}
   .unit-slot.dead{opacity:.5;}
   .unit-slot.active-turn .sprite{box-shadow:0 0 0 2px var(--gold) inset, 0 0 8px var(--gold);}
   @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
-  .sprite.lunge-up{animation:lungeUp .4s ease-in-out;}
-  @keyframes lungeUp{0%{transform:translateY(0);}40%{transform:translateY(-46px) scale(1.06);}100%{transform:translateY(0);}}
-  .sprite.lunge-down{animation:lungeDown .4s ease-in-out;}
-  @keyframes lungeDown{0%{transform:translateY(0);}40%{transform:translateY(46px) scale(1.06);}100%{transform:translateY(0);}}
+  .sprite.lunge-left{animation:lungeLeft .4s ease-in-out;}
+  @keyframes lungeLeft{0%{transform:translateX(0);}40%{transform:translateX(-42px) scale(1.06);}100%{transform:translateX(0);}}
+  .sprite.lunge-right{animation:lungeRight .4s ease-in-out;}
+  @keyframes lungeRight{0%{transform:translateX(0);}40%{transform:translateX(42px) scale(1.06);}100%{transform:translateX(0);}}
   .sprite.hit-flash{animation:hitFlash .32s ease-in-out;}
   @keyframes hitFlash{0%{filter:none;}20%{filter:brightness(3) saturate(0);}40%{filter:brightness(1);}100%{filter:none;}}
   .sprite.hit-flash-super{animation:hitFlashSuper .5s ease-in-out;}
@@ -193,7 +197,7 @@
     #battle-log{height:90px;}
     .arena{padding:10px 8px;}
     .unit-slot{width:70px;}
-    .enemy-row .unit-slot{width:60px;}
+    .enemy-side .unit-slot{width:60px;}
   }
 
   @media (max-width: 700px){
@@ -252,6 +256,16 @@
     <div class="card-grid" id="enemy-pick-grid"></div>
     <h3 style="font-size:14px;">Gegner-Team</h3>
     <div class="roster-list" id="enemy-roster-list"></div>
+    <div class="field" style="max-width:260px;">
+      <label>Kampf-Hintergrund (nur für Testkämpfe hier)</label>
+      <select id="manual-battle-bg">
+        <option value="gras">Grasland</option>
+        <option value="wueste">Wüste</option>
+        <option value="sumpf">Sumpf</option>
+        <option value="hoelle">Höllenland</option>
+        <option value="himmel">Himmlisch</option>
+      </select>
+    </div>
     <div class="toolbar">
       <button id="back-to-team-btn">← Zurück</button>
       <button class="primary" id="start-battle-btn">Kampf starten ⚔</button>
@@ -268,9 +282,11 @@
       </div>
     </div>
     <div class="arena">
-      <div class="road"></div>
-      <div class="lane-row enemy-row" id="enemy-field"></div>
-      <div class="lane-row hero-row" id="player-field"></div>
+      <div class="arena-bg" id="arena-bg"></div>
+      <div class="battle-stage">
+        <div class="side-column enemy-side" id="enemy-field"></div>
+        <div class="side-column player-side" id="player-field"></div>
+      </div>
     </div>
     <div id="action-panel" style="display:none;"></div>
     <div id="battle-log"></div>
@@ -297,10 +313,11 @@ const XP_BASE_FACTOR = 8; // Standard-XP bei Level L = 8 * L^1.5
 const ELEMENT_BADGE_COLORS = { 'Feuer':'#d9705a', 'Wasser':'#5ea3cf', 'Erde':'#b89968', 'Luft':'#eef1ea' };
 let battleSpeed = 1;
 
-let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={}, ELEMENT_RING_IMAGES={};
+let ELEMENTS=[], ELEMENT_RELATIONS=[], CLASSES=[], CLASS_RELATIONS=[], RARITIES=[], SKILLS=[], UNITS=[], LEARNABLE={}, ELEMENT_RING_IMAGES={}, BATTLE_BACKGROUNDS={};
+let currentBattleBackground = 'gras';
 
 async function loadAll(){
-  const [el, elr, cl, clr, ra, sk, un, ls, ring] = await Promise.all([
+  const [el, elr, cl, clr, ra, sk, un, ls, ring, bg] = await Promise.all([
     supabase.from('elements').select('*'),
     supabase.from('element_relations').select('*'),
     supabase.from('classes').select('*'),
@@ -310,6 +327,7 @@ async function loadAll(){
     supabase.from('units').select('*'),
     supabase.from('unit_learnable_skills').select('*'),
     supabase.from('element_rings').select('*'),
+    supabase.from('battle_backgrounds').select('*'),
   ]);
   ELEMENTS = el.data||[]; ELEMENT_RELATIONS = elr.data||[]; CLASSES = cl.data||[]; CLASS_RELATIONS = clr.data||[];
   RARITIES = ra.data||[]; SKILLS = sk.data||[]; UNITS = un.data||[];
@@ -317,6 +335,8 @@ async function loadAll(){
   (ls.data||[]).forEach(row => { (LEARNABLE[row.unit_id] = LEARNABLE[row.unit_id]||[]).push(row); });
   ELEMENT_RING_IMAGES = {};
   (ring.data||[]).forEach(r => { ELEMENT_RING_IMAGES[r.element_id] = r.image_url; });
+  BATTLE_BACKGROUNDS = {};
+  (bg.data||[]).forEach(r => { BATTLE_BACKGROUNDS[r.ground_type] = r.image_url; });
   document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills geladen`;
 }
 
@@ -584,6 +604,7 @@ function buildBattleUnit(entry, side, waveIndex){
     uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
     name: entry.unit.name, side, position: entry.position, waveIndex: waveIndex ?? 0,
     classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
+    battleSpriteUrl: entry.unit.battle_sprite_url || null,
     maxHp: eff.maxHp, hp: eff.maxHp,
     atk: eff.atk, def: eff.def, spd: eff.spd,
     skills, skillCooldowns: {}, buffs: [], shield: 0, atb: Math.random()*200, alive: true,
@@ -613,6 +634,7 @@ document.getElementById('speed-toggle').addEventListener('click', () => {
 
 document.getElementById('start-battle-btn').addEventListener('click', () => {
   if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
+  currentBattleBackground = document.getElementById('manual-battle-bg').value || 'gras';
   waveChunks = [];
   for (let i=0; i<enemySetup.length; i+=4) waveChunks.push(enemySetup.slice(i, i+4));
   currentWaveIndex = 0;
@@ -655,9 +677,9 @@ function buffsText(u){
 function unitSlotHtml(u){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
-  const visual = u.spriteUrl
-    ? `<img src="${u.spriteUrl}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" />`
-    : icon;
+  let visual = icon;
+  if (u.battleSpriteUrl) visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`;
+  else if (u.spriteUrl) visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`;
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
@@ -672,24 +694,34 @@ function unitSlotHtml(u){
     </div>`;
 }
 
-// Front-Reihen zeigen zueinander (Richtung Strasse/Mitte): Gegner-Front unten im Gegner-Block,
-// eigene Front oben im eigenen Block. Gegner sieht man von vorne, eigene Truppen von hinten.
+// Links-Rechts-Bühne: Gegner links (Front-Spalte rechts davon, Richtung Zentrum/Spieler),
+// Spieler rechts (Front-Spalte links davon, Richtung Zentrum/Gegner). Gegner sieht man von
+// vorne, eigene Truppen von hinten (per CSS gespiegelt).
 function buildField(){
+  setArenaBackground();
   const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
   const enemyBack = enemies.filter(u=>u.position!=='front');
   const enemyFront = enemies.filter(u=>u.position==='front');
   enemyFieldEl.innerHTML = `
-    <div class="sub-row">${enemyBack.map(unitSlotHtml).join('')}</div>
-    <div class="sub-row">${enemyFront.map(unitSlotHtml).join('')}</div>
+    <div class="sub-col">${enemyBack.map(unitSlotHtml).join('')}</div>
+    <div class="sub-col">${enemyFront.map(unitSlotHtml).join('')}</div>
   `;
 
   const players = battleUnits.filter(u=>u.side==='player');
   const playerFront = players.filter(u=>u.position==='front');
   const playerBack = players.filter(u=>u.position!=='front');
   playerFieldEl.innerHTML = `
-    <div class="sub-row">${playerFront.map(unitSlotHtml).join('')}</div>
-    <div class="sub-row">${playerBack.map(unitSlotHtml).join('')}</div>
+    <div class="sub-col">${playerFront.map(unitSlotHtml).join('')}</div>
+    <div class="sub-col">${playerBack.map(unitSlotHtml).join('')}</div>
   `;
+}
+
+function setArenaBackground(){
+  const el = document.getElementById('arena-bg');
+  if (!el) return;
+  const url = BATTLE_BACKGROUNDS[currentBattleBackground] || null;
+  el.style.backgroundImage = url ? `url('${url}')` : 'none';
+  el.style.background = url ? `url('${url}') center/cover` : 'linear-gradient(180deg,#16261c 0%,#0f1a14 100%)';
 }
 // Rückwärtskompatibler Alias (frühere Aufrufe im Code)
 function renderField(){ buildField(); }
@@ -718,8 +750,8 @@ function highlightActive(actor){
 function animateAttacker(u){
   const sprite = document.querySelector(`.sprite[data-sprite="${u.uid}"]`);
   if (!sprite) return;
-  sprite.classList.remove('lunge-up','lunge-down'); void sprite.offsetWidth;
-  sprite.classList.add(u.side==='player' ? 'lunge-up' : 'lunge-down');
+  sprite.classList.remove('lunge-left','lunge-right'); void sprite.offsetWidth;
+  sprite.classList.add(u.side==='player' ? 'lunge-left' : 'lunge-right');
 }
 
 function animateHit(u, text, cls, eff){
@@ -1061,6 +1093,10 @@ function tryLoadHandoff(){
       unit: UNITS.find(u=>u.id===e.unitId), level: e.level, star: e.star, position: e.position,
       activeSkillIds: new Set(e.activeSkillIds),
     })).filter(e=>e.unit);
+    if (data.battleBackground) {
+      const bgSel = document.getElementById('manual-battle-bg');
+      if (bgSel) bgSel.value = data.battleBackground;
+    }
     if (teamSetup.length && enemySetup.length){
       document.getElementById('start-battle-btn').click();
     }
