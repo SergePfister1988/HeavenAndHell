@@ -51,24 +51,22 @@
 
   .arena{
     position:relative; border:2px solid #0a120d; border-radius:10px;
-    margin-bottom:16px; overflow:hidden; min-height:240px; background:#16261c;
+    margin-bottom:16px; overflow:hidden; min-height:300px; background:#16261c;
   }
   .arena-bg{position:absolute; inset:0; background-size:cover; background-position:center; z-index:0;}
   .arena-bg::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.4));}
   .battle-stage{
     position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end;
-    min-height:240px; padding:16px 14px 12px; gap:6px;
+    min-height:300px; padding:16px 14px 20px; gap:6px;
   }
-  .side-column{display:flex; gap:8px; align-items:flex-end;}
-  .sub-col{display:flex; flex-direction:column; gap:10px; align-items:center;}
-  .pos-badge{font-size:7px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:0 5px; margin-top:2px; display:inline-block; background:rgba(10,9,6,.5);}
-  .pos-badge.front{color:var(--gold); border-color:var(--gold-soft);}
+  .side-column{display:flex; align-items:flex-end; gap:26px; flex-wrap:wrap;}
   .unit-slot{display:flex; flex-direction:column; align-items:center; width:78px;}
   .enemy-side .unit-slot{width:66px;}
-  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; display:flex; align-items:center; gap:4px; justify-content:center; text-shadow:1px 1px 2px #000;}
+  .u-topbar{display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:4px;}
+  .u-name{font-size:9.5px; color:var(--text); margin-top:4px; text-align:center; text-shadow:1px 1px 2px #000;}
   .level-badge{font-size:8px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 5px; flex-shrink:0;}
-  .u-barwrap{width:72px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; margin-top:3px; position:relative;}
-  .enemy-side .u-barwrap{width:60px; height:9px;}
+  .u-barwrap{width:64px; height:11px; background:#0a120d; border:1px solid #000; border-radius:3px; overflow:hidden; position:relative;}
+  .enemy-side .u-barwrap{width:54px; height:9px;}
   .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
   .u-barfill.hp{background:var(--hp, #4caf50);}
   .u-barfill.hp.low{background:#c94a3a;}
@@ -138,8 +136,12 @@
   .unit-slot.targetable .sprite{animation: idle 1.8s ease-in-out infinite, targetPulse .9s ease-in-out infinite;}
   @keyframes targetPulse{0%,100%{box-shadow:0 0 0 2px #ffcf4a inset, 0 0 6px #ffcf4a;}50%{box-shadow:0 0 0 3px #ffcf4a inset, 0 0 14px #ffcf4a;}}
 
-  #action-panel{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:20px;}
-  #action-panel h3{margin:0 0 10px; font-size:14px;}
+  #action-panel{
+    position:fixed; right:8px; top:50%; transform:translateY(-50%); z-index:70;
+    background:rgba(26,23,15,.92); border:1px solid var(--line); border-radius:14px;
+    padding:12px 8px; max-height:82vh; overflow-y:auto; display:flex; flex-direction:column; align-items:center;
+  }
+  #action-panel h3{margin:0 0 10px; font-size:10.5px; text-align:center; max-width:90px;}
   .skill-btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
   .target-btn-row{display:flex; gap:8px; flex-wrap:wrap;}
 
@@ -154,43 +156,30 @@
   #result-banner{text-align:center; padding:30px; background:var(--surface); border:1px solid var(--line); border-radius:8px;}
   #result-banner h2{font-size:26px; margin:0 0 10px;}
 
-  /* ---------- Runde Skill-Buttons (Kampfbildschirm) ---------- */
+  /* ---------- Runde Skill-Buttons: nur Element-Ring, Name+CD als Text darunter ---------- */
   .round-skill-btn{
-    width:64px; height:64px; border-radius:50%; border:3px solid var(--gold-soft);
-    background: radial-gradient(circle at 35% 30%, var(--surface-3), var(--surface-2));
-    color:var(--text); font-size:22px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; position:relative; flex-shrink:0;
+    width:60px; height:60px; border-radius:50%; border:none; padding:0; margin:0;
+    background:rgba(10,9,6,.55); cursor:pointer; position:relative; overflow:hidden; flex-shrink:0;
   }
-  .round-skill-btn:hover:not(:disabled){border-color:var(--gold);}
-  .round-skill-btn:disabled{opacity:.35; cursor:not-allowed;}
-  .round-skill-btn .cd-badge{
-    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
-    font-size:9px; background:var(--gold-soft); color:#1a1712; border-radius:100px; padding:1px 6px; font-weight:700;
-    white-space:nowrap;
-  }
-  .round-skill-btn.on-cooldown{opacity:.4; cursor:not-allowed;}
-  .round-skill-btn.on-cooldown .cd-badge{background:var(--danger, #a5473a); color:#fff;}
-  .skill-ring-holder{position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;}
-  .elem-ring-btn{position:absolute; inset:-16px; z-index:0; pointer-events:none;}
-  .elem-ring-btn.fallback{
-    border-radius:50%; overflow:hidden;
-    -webkit-mask-image: radial-gradient(circle, transparent 60%, #000 65%, #000 100%);
-    mask-image: radial-gradient(circle, transparent 60%, #000 65%, #000 100%);
-    box-shadow:0 0 8px rgba(255,255,255,.25);
-  }
-  .elem-ring-btn img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
+  .round-skill-btn:disabled{cursor:not-allowed;}
+  .round-skill-btn.on-cooldown{opacity:.4;}
+  .skill-ring-holder{position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center;}
+  .elem-ring-btn{position:absolute; inset:0; border-radius:50%; overflow:hidden;}
+  .elem-ring-btn img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
   .elem-ring-btn img.ring-left{clip-path:inset(0 50% 0 0);}
   .elem-ring-btn img.ring-right{clip-path:inset(0 0 0 50%);}
-  .round-skill-btn{ z-index:1; }
   .skill-tooltip{
     position:fixed; z-index:200; max-width:220px; background:var(--surface); border:1px solid var(--gold-soft);
     border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:var(--text);
     box-shadow:0 8px 24px rgba(0,0,0,.5); pointer-events:none; transform:translate(-50%,-100%);
   }
   .skill-tooltip strong{color:var(--gold); display:block; margin-bottom:3px; font-size:12.5px;}
-  .round-skill-label{font-size:9px; text-align:center; margin-top:4px; color:var(--muted); max-width:70px;}
-  .round-skill-wrap{display:flex; flex-direction:column; align-items:center;}
-  #skill-choices.round-mode{display:flex; gap:34px; row-gap:20px; justify-content:center; align-items:flex-start; flex-wrap:wrap; padding:0 6px;}
+  .round-skill-label{font-size:9.5px; text-align:center; margin-top:5px; color:var(--text); max-width:74px; line-height:1.3;}
+  .round-skill-cd{font-size:8.5px; text-align:center; color:var(--gold-soft); font-weight:700;}
+  .round-skill-cd.ready{color:var(--gold-soft);}
+  .round-skill-cd.blocked{color:var(--danger, #a5473a);}
+  .round-skill-wrap{display:flex; flex-direction:column; align-items:center; margin-bottom:6px;}
+  #skill-choices.round-mode{display:flex; flex-direction:column; gap:22px; align-items:center;}
 
   /* ---------- Querformat-Optimierung ---------- */
   @media (orientation: landscape) and (max-height: 500px){
@@ -339,7 +328,7 @@ async function loadAll(){
   (ring.data||[]).forEach(r => { ELEMENT_RING_IMAGES[r.element_id] = r.image_url; });
   BATTLE_BACKGROUNDS = {};
   (bg.data||[]).forEach(r => { BATTLE_BACKGROUNDS[r.ground_type] = r.image_url; });
-  document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills geladen`;
+  document.getElementById('config-status').textContent = `${UNITS.length} Einheiten, ${SKILLS.length} Skills, ${Object.keys(BATTLE_BACKGROUNDS).length} Kampf-Hintergründe geladen`;
 }
 
 function rarityOf(id){ return RARITIES.find(r=>r.id===id); }
@@ -495,7 +484,7 @@ function renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxC
         const unit = allOptions.find(u=>u.id===id);
         const learnable = (LEARNABLE[id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)})).filter(l=>l.skill);
         const startSkillIds = learnable.filter(l=>l.unlock_level<=1).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
-        targetArray.push({ unit, level:1, star:1, position:'front', activeSkillIds: new Set(startSkillIds) });
+        targetArray.push({ unit, level:1, star:1, activeSkillIds: new Set(startSkillIds) });
       }
       renderPickGrid(containerId, filterPrefix, allOptions, targetArray, maxCount, rerenderRoster);
       rerenderRoster();
@@ -515,12 +504,6 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
       ${waveTag}
       <label>Level <input type="number" class="r-level" min="1" max="50" value="${entry.level}"/></label>
       <label>Stern <input type="number" class="r-star" min="1" max="5" value="${entry.star}"/></label>
-      <label>Position
-        <select class="r-pos">
-          <option value="front" ${entry.position==='front'?'selected':''}>Front</option>
-          <option value="back" ${entry.position==='back'?'selected':''}>Back</option>
-        </select>
-      </label>
       <button class="danger r-remove" style="border-color:var(--danger);color:#e0a294;">Entfernen</button>
       <div class="skill-toggle" style="width:100%;">
         ${learnable.map(l => `<span class="skill-chip ${entry.activeSkillIds.has(l.skill_id)?'on':''}" data-skill="${l.skill_id}">${l.skill.name} (CD ${l.skill.cooldown_turns})</span>`).join('') || '<span style="color:var(--muted);font-size:11px;">Keine Skills bei diesem Level/Stern verfügbar.</span>'}
@@ -533,7 +516,6 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
     const entry = arr[idx];
     row.querySelector('.r-level').addEventListener('change', e => { entry.level = Math.max(1, Math.min(50, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid, showWave); });
     row.querySelector('.r-star').addEventListener('change', e => { entry.star = Math.max(1, Math.min(5, +e.target.value||1)); renderRoster(containerId, arr, rerenderGrid, showWave); });
-    row.querySelector('.r-pos').addEventListener('change', e => { entry.position = e.target.value; });
     row.querySelector('.r-remove').addEventListener('click', () => { arr.splice(idx,1); renderRoster(containerId, arr, rerenderGrid, showWave); rerenderGrid(); });
     row.querySelectorAll('.skill-chip').forEach(chip => {
       chip.addEventListener('click', () => {
@@ -604,7 +586,7 @@ function buildBattleUnit(entry, side, waveIndex){
   });
   return {
     uid: entry.unit.id + '_' + side + '_' + Math.random().toString(36).slice(2,8),
-    name: entry.unit.name, side, position: entry.position, waveIndex: waveIndex ?? 0,
+    name: entry.unit.name, side, waveIndex: waveIndex ?? 0,
     classId: entry.unit.class_id, elementId: entry.unit.element_id, spriteUrl: entry.unit.sprite_url || null,
     battleSpriteUrl: entry.unit.battle_sprite_url || null,
     maxHp: eff.maxHp, hp: eff.maxHp,
@@ -686,43 +668,35 @@ function unitSlotHtml(u){
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
+      <div class="u-topbar">
+        <span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>
+        <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
+      </div>
       <div class="sprite-wrap">
         <div class="shadow"></div>
         <div class="sprite ${hasImage?'has-image':''}" data-sprite="${u.uid}">${visual}${u.shield>0?`<span class="shield-badge" data-shield="${u.uid}">🛡</span>`:''}<span class="dmg-pop" data-pop="${u.uid}"></span></div>
       </div>
-      <div class="u-name"><span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>${u.name}</div>
-      <span class="pos-badge ${u.position==='front'?'front':''}">${u.position==='front'?'Front':'Hinten'}</span>
-      <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
+      <div class="u-name">${u.name}</div>
       <div class="buffs" data-buffs="${u.uid}">${buffsText(u)}</div>
     </div>`;
 }
 
-// Links-Rechts-Bühne: Gegner links (Front-Spalte rechts davon, Richtung Zentrum/Spieler),
-// Spieler rechts (Front-Spalte links davon, Richtung Zentrum/Gegner). Gegner sieht man von
-// vorne, eigene Truppen von hinten (per CSS gespiegelt).
+// Links-Rechts-Bühne: Gegner links, Spieler rechts. Keine Front/Back-Aufteilung mehr —
+// jede Seite ist eine einzelne Reihe im unteren Drittel der Bühne.
 function buildField(){
   setArenaBackground();
   const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
-  const enemyBack = enemies.filter(u=>u.position!=='front');
-  const enemyFront = enemies.filter(u=>u.position==='front');
-  enemyFieldEl.innerHTML = `
-    <div class="sub-col">${enemyBack.map(unitSlotHtml).join('')}</div>
-    <div class="sub-col">${enemyFront.map(unitSlotHtml).join('')}</div>
-  `;
+  enemyFieldEl.innerHTML = enemies.map(unitSlotHtml).join('');
 
   const players = battleUnits.filter(u=>u.side==='player');
-  const playerFront = players.filter(u=>u.position==='front');
-  const playerBack = players.filter(u=>u.position!=='front');
-  playerFieldEl.innerHTML = `
-    <div class="sub-col">${playerFront.map(unitSlotHtml).join('')}</div>
-    <div class="sub-col">${playerBack.map(unitSlotHtml).join('')}</div>
-  `;
+  playerFieldEl.innerHTML = players.map(unitSlotHtml).join('');
 }
 
 function setArenaBackground(){
   const el = document.getElementById('arena-bg');
   if (!el) return;
   const url = BATTLE_BACKGROUNDS[currentBattleBackground] || null;
+  console.log('[Kampf-Hintergrund]', currentBattleBackground, '->', url);
   el.style.backgroundImage = url ? `url('${url}')` : 'none';
   el.style.background = url ? `url('${url}') center/cover` : 'linear-gradient(180deg,#16261c 0%,#0f1a14 100%)';
 }
@@ -811,13 +785,7 @@ function validTargets(actor, skill){
     case 'self': return [actor];
     case 'single_ally': return allySide;
     case 'all_allies': return allySide;
-    case 'single_enemy': {
-      if (skill.is_melee){
-        const front = enemySide.filter(u=>u.position==='front');
-        if (front.length) return front;
-      }
-      return enemySide;
-    }
+    case 'single_enemy': return enemySide;
     case 'all_enemies': return enemySide;
   }
   return [];
@@ -842,7 +810,6 @@ function resolveAction(actor, skill, targets){
       case 'dot': {
         let base = getStat(actor,'atk') * (skill.power/100);
         let defVal = getStat(target,'def');
-        if (target.position==='front') defVal *= 1.10;
         let afterDef = base * (100/(100+defVal));
         let classMod = classModifier(actor.classId, target.classId);
         let elemMod = 0;
@@ -986,7 +953,7 @@ async function battleLoop(){
 
 function waitForPlayerAction(actor){
   return new Promise(resolve => {
-    actionPanelEl.style.display = 'block';
+    actionPanelEl.style.display = 'flex';
     actionPanelEl.innerHTML = `<h3>${actor.name} ist am Zug</h3><div class="skill-btn-row round-mode" id="skill-choices"></div><p id="target-hint" style="font-size:11px;color:var(--gold);margin:8px 0 0;display:none;">👆 Ziel im Kampffeld antippen…</p>`;
     const skillBox = document.getElementById('skill-choices');
     const anyReady = actor.skills.some(s=>isReady(actor, s));
@@ -1003,9 +970,10 @@ function waitForPlayerAction(actor){
       <div class="round-skill-wrap">
         <div class="skill-ring-holder">
           ${skillElementRingHtml(s)}
-          <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}>${skillIcon(s)}<span class="cd-badge">${badgeText}</span></button>
+          <button class="round-skill-btn skill-opt ${ready?'':'on-cooldown'}" data-i="${i}" ${ready?'':'disabled'}></button>
         </div>
         <div class="round-skill-label">${s.name}</div>
+        <div class="round-skill-cd ${ready?'ready':'blocked'}">${badgeText}</div>
       </div>
     `; }).join('');
     skillBox.querySelectorAll('.round-skill-btn').forEach(btn => {

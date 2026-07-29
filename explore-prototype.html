@@ -320,7 +320,7 @@ function renderHeroGrid(){
         const unit = UNITS.find(u=>u.id===id);
         const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', id).eq('unlock_level', 1);
         const activeSkillIds = new Set((learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id));
-        teamSetup.push({ unit, level:1, star:1, position: teamSetup.length%2===0?'front':'back', activeSkillIds });
+        teamSetup.push({ unit, level:1, star:1, activeSkillIds });
       }
       renderHeroGrid();
     });
@@ -438,7 +438,7 @@ async function triggerEncounter(){
     const level = lvlMin + Math.floor(Math.random()*(lvlMax-lvlMin+1));
     const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', unit.id).lte('unlock_level', level);
     const activeSkillIds = (learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id);
-    enemies.push({ unitId: unit.id, level, star: 1, position: i%4<2?'front':'back', activeSkillIds });
+    enemies.push({ unitId: unit.id, level, star: 1, activeSkillIds });
   }
   const teamPayload = teamSetup.map(e => ({ unitId: e.unit.id, level: e.level, star: e.star, position: e.position, activeSkillIds: [...e.activeSkillIds] }));
 
