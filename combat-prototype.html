@@ -668,7 +668,7 @@ function buffsText(u){
     .join(' ');
 }
 
-function unitSlotHtml(u){
+function unitSlotHtml(u, idx){
   const badgeColor = ELEMENT_BADGE_COLORS[elementOf(u.elementId)?.name] || '#888';
   const icon = CLASS_ICON[classOf(u.classId)?.name] || (u.side==='player'?'🗡️':'👹');
   let visual = icon;
@@ -676,8 +676,11 @@ function unitSlotHtml(u){
   if (u.battleSpriteUrl) { visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`; hasImage = true; }
   else if (u.spriteUrl) { visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`; hasImage = true; }
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
+  const stagger = idx * 16; // px Versatz nach oben pro Position -> diagonale Staffelung
+  const overlap = idx > 0 ? -36 : 0; // leichte horizontale Überlappung (Row-Gap ist 18px, netto ~-18px)
+  const slotStyle = `transform:translateY(-${stagger}px); margin-left:${overlap}px; z-index:${200-idx};`;
   return `
-    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
+    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}" style="${slotStyle}">
       <div class="u-topbar">
         <span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>
         <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
@@ -691,15 +694,15 @@ function unitSlotHtml(u){
     </div>`;
 }
 
-// Links-Rechts-Bühne: Gegner links, Spieler rechts. Keine Front/Back-Aufteilung mehr —
-// jede Seite ist eine einzelne Reihe im unteren Drittel der Bühne.
+// Links-Rechts-Bühne: Gegner links, Spieler rechts. Innerhalb jeder Seite diagonal
+// gestaffelt (leichter Versatz + Überlappung) für einen dezenten 3D-Tiefeneffekt.
 function buildField(){
   setArenaBackground();
   const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
-  enemyFieldEl.innerHTML = enemies.map(unitSlotHtml).join('');
+  enemyFieldEl.innerHTML = enemies.map((u,i)=>unitSlotHtml(u,i)).join('');
 
   const players = battleUnits.filter(u=>u.side==='player');
-  playerFieldEl.innerHTML = players.map(unitSlotHtml).join('');
+  playerFieldEl.innerHTML = players.map((u,i)=>unitSlotHtml(u,i)).join('');
 }
 
 function setArenaBackground(){
