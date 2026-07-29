@@ -137,11 +137,12 @@
   @keyframes targetPulse{0%,100%{box-shadow:0 0 0 2px #ffcf4a inset, 0 0 6px #ffcf4a;}50%{box-shadow:0 0 0 3px #ffcf4a inset, 0 0 14px #ffcf4a;}}
 
   #action-panel{
-    position:fixed; right:8px; top:50%; transform:translateY(-50%); z-index:70;
-    background:rgba(26,23,15,.92); border:1px solid var(--line); border-radius:14px;
-    padding:12px 8px; max-height:82vh; overflow-y:auto; display:flex; flex-direction:column; align-items:center;
+    position:fixed; left:0; right:0; bottom:0; z-index:70;
+    background:rgba(20,17,11,.96); border-top:1px solid var(--line); border-radius:16px 16px 0 0;
+    padding:10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); max-height:42vh; overflow-y:auto;
+    display:flex; flex-direction:column; align-items:center;
   }
-  #action-panel h3{margin:0 0 10px; font-size:10.5px; text-align:center; max-width:90px;}
+  #action-panel h3{margin:0 0 8px; font-size:12px; text-align:center;}
   .skill-btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
   .target-btn-row{display:flex; gap:8px; flex-wrap:wrap;}
 
@@ -179,9 +180,21 @@
   .round-skill-cd.ready{color:var(--gold-soft);}
   .round-skill-cd.blocked{color:var(--danger, #a5473a);}
   .round-skill-wrap{display:flex; flex-direction:column; align-items:center; margin-bottom:6px;}
-  #skill-choices.round-mode{display:flex; flex-direction:column; gap:22px; align-items:center;}
+  #skill-choices.round-mode{display:flex; flex-direction:row; gap:18px; align-items:flex-start; justify-content:center; flex-wrap:wrap; overflow-x:auto; width:100%; padding:2px 4px;}
 
   /* ---------- Querformat-Optimierung ---------- */
+  .rotate-hint{
+    display:none; position:fixed; inset:0; z-index:500; background:rgba(10,9,6,.96);
+    flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px;
+  }
+  .rotate-hint .rotate-icon{font-size:52px; margin-bottom:18px; animation:rotatePulse 1.6s ease-in-out infinite;}
+  .rotate-hint p{color:var(--text); font-size:15px; line-height:1.6; max-width:280px;}
+  .rotate-hint strong{color:var(--gold);}
+  @keyframes rotatePulse{0%,100%{transform:rotate(0deg);}50%{transform:rotate(80deg);}}
+  @media (orientation: portrait){
+    .rotate-hint{display:flex;}
+  }
+
   @media (orientation: landscape) and (max-height: 500px){
     main{max-width:100%; padding:8px 14px 60px;}
     header{padding:8px 14px;}
@@ -265,6 +278,10 @@
 
   <!-- ================= BATTLE ================= -->
   <section class="view" id="view-battle">
+    <div class="rotate-hint" id="rotate-hint">
+      <div class="rotate-icon">🔄</div>
+      <p>Für ein besseres Kampferlebnis:<br><strong>Bitte Gerät ins Querformat drehen</strong></p>
+    </div>
     <div class="toolbar" style="justify-content:space-between;">
       <span id="wave-indicator" class="mono" style="font-size:12px;color:var(--gold);">Welle 1 von 1</span>
       <div style="display:flex;gap:8px;">
@@ -411,9 +428,8 @@ function elementModifierSingle(attackerElemId, defenderElemId){
 // STAT-BERECHNUNG (Level + Seltenheit + Stern)
 // ============================================================
 function computeEffective(unit, level, star){
-  const rar = rarityOf(unit.rarity_id) || { stat_multiplier:1 };
   const starMult = 1 + 0.20*(star-1);
-  const calc = (base, growth) => Math.round(base + growth*(level-1)) * rar.stat_multiplier * starMult;
+  const calc = (base, growth) => Math.round(base + growth*(level-1)) * starMult;
   return {
     maxHp: Math.round(calc(unit.base_hp, unit.growth_hp)),
     atk: Math.round(calc(unit.base_atk, unit.growth_atk)),
@@ -616,9 +632,21 @@ document.getElementById('speed-toggle').addEventListener('click', () => {
   document.getElementById('speed-toggle').textContent = 'x'+battleSpeed;
 });
 
+async function tryLockLandscape(){
+  try {
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement){
+      await document.documentElement.requestFullscreen();
+    }
+    if (screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape');
+    }
+  } catch(e) { /* auf vielen Geräten/Browsern nicht erlaubt — Dreh-Hinweis greift dann als Fallback */ }
+}
+
 document.getElementById('start-battle-btn').addEventListener('click', () => {
   if (!enemySetup.length){ alert('Wähle mindestens einen Gegner.'); return; }
   currentBattleBackground = document.getElementById('manual-battle-bg').value || 'gras';
+  tryLockLandscape();
   waveChunks = [];
   for (let i=0; i<enemySetup.length; i+=4) waveChunks.push(enemySetup.slice(i, i+4));
   currentWaveIndex = 0;
