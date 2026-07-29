@@ -59,11 +59,11 @@
     position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end;
     min-height:400px; padding:16px 14px 20px; gap:6px;
   }
-  .side-column{display:flex; align-items:flex-end; gap:24px; flex-wrap:wrap;}
-  .unit-slot{display:flex; flex-direction:column; align-items:center; width:117px;}
+  .side-column{display:flex; align-items:flex-end; gap:18px; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:0 2px 4px; scrollbar-width:thin; min-width:0; flex:1 1 0;}
+  .unit-slot{display:flex; flex-direction:column; align-items:center; width:117px; flex-shrink:0;}
   .enemy-side .unit-slot{width:99px;}
   .u-topbar{display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:4px;}
-  .u-name{font-size:14px; color:var(--text); margin-top:6px; text-align:center; text-shadow:1px 1px 2px #000;}
+  .u-name{font-size:14px; color:var(--text); margin-top:6px; text-align:center; text-shadow:1px 1px 2px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;}
   .level-badge{font-size:12px; font-weight:800; color:#1a1712; border-radius:100px; padding:2px 7px; flex-shrink:0;}
   .u-barwrap{width:96px; height:16px; background:#0a120d; border:1px solid #000; border-radius:4px; overflow:hidden; position:relative;}
   .enemy-side .u-barwrap{width:81px; height:14px;}
