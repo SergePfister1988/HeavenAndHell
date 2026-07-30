@@ -57,7 +57,7 @@
   .arena-bg::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.4));}
   .battle-stage{
     position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end;
-    min-height:400px; padding:16px 14px 20px; gap:6px;
+    min-height:400px; padding:56px 14px 20px; gap:6px;
   }
   .side-column{display:flex; align-items:flex-end; gap:18px; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:0 2px 4px; scrollbar-width:thin; min-width:0; flex:1 1 0;}
   .unit-slot{display:flex; flex-direction:column; align-items:center; width:117px; flex-shrink:0;}
@@ -193,8 +193,9 @@
   @media (orientation: landscape) and (max-height: 500px){
     main{max-width:100%; padding:8px 14px 60px;}
     header{padding:8px 14px;}
-    #battle-log{height:90px;}
-    .arena{padding:10px 8px;}
+    #battle-log{height:70px;}
+    .arena{min-height:260px;}
+    .battle-stage{min-height:260px; padding:38px 14px 14px;}
     .unit-slot{width:100px;}
     .enemy-side .unit-slot{width:88px;}
   }
@@ -229,7 +230,7 @@
   <!-- ================= SETUP: TEAM ================= -->
   <section class="view active" id="view-team-setup">
     <h2>1. Team zusammenstellen</h2>
-    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 5 Helden. Level/Stern kannst du frei einstellen, um verschiedene Ausbaustufen zu testen.</p>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 3 Helden. Level/Stern kannst du frei einstellen, um verschiedene Ausbaustufen zu testen.</p>
     <div class="toolbar" id="hero-filter-bar">
       <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
@@ -246,7 +247,7 @@
   <!-- ================= SETUP: ENEMY ================= -->
   <section class="view" id="view-enemy-setup">
     <h2>2. Gegner zusammenstellen</h2>
-    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 16 Einheiten (Helden oder Monster) — sie werden automatisch in Wellen à 4 aufgeteilt (Reihenfolge = Wellen-Zuordnung).</p>
+    <p style="color:var(--muted);font-size:13px;">Wähle bis zu 12 Einheiten (Helden oder Monster) — sie werden automatisch in Wellen à 3 aufgeteilt (Reihenfolge = Wellen-Zuordnung).</p>
     <div class="toolbar" id="enemy-filter-bar">
       <select id="enemy-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="enemy-filter-class"><option value="all">Alle Klassen</option></select>
@@ -495,7 +496,7 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
   box.innerHTML = arr.map((entry,idx) => {
     const learnable = (LEARNABLE[entry.unit.id]||[]).map(l=>({...l, skill:skillOf(l.skill_id)}))
       .filter(l => l.skill && l.unlock_level<=entry.level && l.required_star_level<=entry.star);
-    const waveTag = showWave ? `<span style="font-size:10px;color:var(--gold);border:1px solid var(--line);border-radius:100px;padding:2px 8px;">Welle ${Math.floor(idx/4)+1}</span>` : '';
+    const waveTag = showWave ? `<span style="font-size:10px;color:var(--gold);border:1px solid var(--line);border-radius:100px;padding:2px 8px;">Welle ${Math.floor(idx/3)+1}</span>` : '';
     return `
     <div class="roster-row" data-idx="${idx}">
       <span class="rname">${entry.unit.name}</span>
@@ -533,7 +534,7 @@ function renderRoster(containerId, arr, rerenderGrid, showWave){
 function initSetupScreens(){
   const heroes = heroOptions();
   populateFilterSelects('hero', heroes);
-  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 4, rerenderTeamRoster); }
+  function rerenderTeamGrid(){ renderPickGrid('hero-pick-grid', 'hero', heroes, teamSetup, 3, rerenderTeamRoster); }
   function rerenderTeamRoster(){ renderRoster('team-roster-list', teamSetup, rerenderTeamGrid); }
   ['hero-filter-element','hero-filter-class','hero-filter-rarity'].forEach(id => {
     document.getElementById(id).addEventListener('change', rerenderTeamGrid);
@@ -543,7 +544,7 @@ function initSetupScreens(){
 
   const enemies = enemyOptions();
   populateFilterSelects('enemy', enemies);
-  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 16, rerenderEnemyRoster); }
+  function rerenderEnemyGrid(){ renderPickGrid('enemy-pick-grid', 'enemy', enemies, enemySetup, 12, rerenderEnemyRoster); }
   function rerenderEnemyRoster(){ renderRoster('enemy-roster-list', enemySetup, rerenderEnemyGrid, true); }
   ['enemy-filter-element','enemy-filter-class','enemy-filter-rarity'].forEach(id => {
     document.getElementById(id).addEventListener('change', rerenderEnemyGrid);
@@ -630,7 +631,7 @@ document.getElementById('start-battle-btn').addEventListener('click', () => {
   currentBattleBackground = document.getElementById('manual-battle-bg').value || 'gras';
   tryLockLandscape();
   waveChunks = [];
-  for (let i=0; i<enemySetup.length; i+=4) waveChunks.push(enemySetup.slice(i, i+4));
+  for (let i=0; i<enemySetup.length; i+=3) waveChunks.push(enemySetup.slice(i, i+3));
   currentWaveIndex = 0;
   battleUnits = [
     ...teamSetup.map(e=>buildBattleUnit(e,'player')),
