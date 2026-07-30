@@ -69,12 +69,16 @@
   .side-column{display:flex; align-items:flex-end; gap:18px; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:0 2px 4px; scrollbar-width:thin; min-width:0; flex:1 1 0;}
   .unit-slot{display:flex; flex-direction:column; align-items:center; width:117px; flex-shrink:0;}
   .enemy-side .unit-slot{width:99px;}
-  .u-topbar{display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:4px;}
+  .u-topbar{display:flex; align-items:center; justify-content:center; margin-bottom:4px;}
   .u-name{font-size:14px; color:var(--text); margin-top:6px; text-align:center; text-shadow:1px 1px 2px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;}
-  .level-badge{font-size:12px; font-weight:800; color:#1a1712; border-radius:100px; padding:2px 7px; flex-shrink:0;}
-  .u-barwrap{width:96px; height:16px; background:#0a120d; border:1px solid #000; border-radius:4px; overflow:hidden; position:relative;}
-  .enemy-side .u-barwrap{width:81px; height:14px;}
-  .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1);}
+  .level-badge-mini{
+    position:absolute; left:-6px; top:50%; transform:translateY(-50%); z-index:3;
+    font-size:9px; font-weight:800; color:#1a1712; border-radius:100px; padding:1px 5px;
+    box-shadow:0 0 0 1px #000; white-space:nowrap;
+  }
+  .u-barwrap{width:78px; height:16px; background:#0a120d; border:1px solid #000; border-radius:4px; overflow:visible; position:relative;}
+  .enemy-side .u-barwrap{width:66px; height:14px;}
+  .u-barfill{height:100%; transition:width .5s cubic-bezier(.2,.8,.2,1); border-radius:3px; overflow:hidden;}
   .u-barfill.hp{background:var(--hp, #4caf50);}
   .u-barfill.hp.low{background:#c94a3a;}
   .u-barnum{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; text-shadow:1px 1px 0 rgba(0,0,0,.8);}
@@ -682,14 +686,16 @@ function unitSlotHtml(u, idx){
   if (u.battleSpriteUrl) { visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`; hasImage = true; }
   else if (u.spriteUrl) { visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`; hasImage = true; }
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
-  const stagger = idx * 16; // px Versatz nach oben pro Position -> diagonale Staffelung
-  const overlap = idx > 0 ? -36 : 0; // leichte horizontale Überlappung (Row-Gap ist 18px, netto ~-18px)
-  const slotStyle = `transform:translateY(-${stagger}px); margin-left:${overlap}px; z-index:${200-idx};`;
+  const scale = Math.max(0.8, 1 - idx*0.07); // dezente Tiefe: weiter hinten = etwas kleiner, keine Positionsverschiebung
+  const slotStyle = `transform:scale(${scale}); transform-origin:bottom center;`;
   return `
     <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}" style="${slotStyle}">
       <div class="u-topbar">
-        <span class="level-badge" style="background:${badgeColor};">Lv${u.level}</span>
-        <div class="u-barwrap"><div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div><div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div></div>
+        <div class="u-barwrap">
+          <span class="level-badge-mini" style="background:${badgeColor};">Lv${u.level}</span>
+          <div class="u-barfill hp ${hpPct<30?'low':''}" data-hpbar="${u.uid}" style="width:${hpPct}%"></div>
+          <div class="u-barnum" data-hptext="${u.uid}">${Math.max(0,Math.round(u.hp))}/${u.maxHp}</div>
+        </div>
       </div>
       <div class="sprite-wrap">
         <div class="shadow"></div>
@@ -700,8 +706,9 @@ function unitSlotHtml(u, idx){
     </div>`;
 }
 
-// Links-Rechts-Bühne: Gegner links, Spieler rechts. Innerhalb jeder Seite diagonal
-// gestaffelt (leichter Versatz + Überlappung) für einen dezenten 3D-Tiefeneffekt.
+// Links-Rechts-Bühne: Gegner links, Spieler rechts. Tiefe wird dezent über Skalierung
+// angedeutet (weiter hinten = etwas kleiner), keine Positionsverschiebung mehr — robust
+// gegen Abschneiden, da nichts mehr über den Einheiten-Rahmen hinausragen kann.
 function buildField(){
   setArenaBackground();
   const enemies = battleUnits.filter(u=>u.side==='enemy' && u.waveIndex===currentWaveIndex);
