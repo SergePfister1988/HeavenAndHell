@@ -84,7 +84,7 @@
   <!-- ========== TEAM AUSWAHL ========== -->
   <section class="view active" id="view-team">
     <h2 style="font-size:16px;">1. Team wählen</h2>
-    <p style="color:var(--muted);font-size:12.5px;">Bis zu 4 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
+    <p style="color:var(--muted);font-size:12.5px;">Bis zu 3 Helden für die Erkundung (Level/Stern = 1, zum schnellen Testen).</p>
     <div class="toolbar" id="hero-filter-bar">
       <select id="hero-filter-element"><option value="all">Alle Elemente</option></select>
       <select id="hero-filter-class"><option value="all">Alle Klassen</option></select>
@@ -316,7 +316,7 @@ function renderHeroGrid(){
       const idx = teamSetup.findIndex(t=>t.unit.id===id);
       if (idx>=0){ teamSetup.splice(idx,1); }
       else {
-        if (teamSetup.length>=4){ alert('Maximal 4 Helden.'); return; }
+        if (teamSetup.length>=3){ alert('Maximal 3 Helden.'); return; }
         const unit = UNITS.find(u=>u.id===id);
         const { data: learnData } = await supabase.from('unit_learnable_skills').select('*').eq('unit_id', id).eq('unlock_level', 1);
         const activeSkillIds = new Set((learnData||[]).slice(0, unit.active_skill_slots||4).map(l=>l.skill_id));
@@ -430,7 +430,7 @@ async function triggerEncounter(){
   const waveCount = map.wave_count || 3;
   const lvlMin = map.level_min || 1;
   const lvlMax = Math.max(lvlMin, map.level_max || lvlMin);
-  const totalEnemies = waveCount * 4;
+  const totalEnemies = waveCount * 3;
 
   const enemies = [];
   for (let i=0; i<totalEnemies; i++){
@@ -444,7 +444,7 @@ async function triggerEncounter(){
 
   sessionStorage.setItem('hah_handoff', JSON.stringify({ team: teamPayload, enemies, battleBackground: currentMap.battle_background || 'gras' }));
   sessionStorage.setItem('hah_return_explore', JSON.stringify({ mapId: currentMap.id, x: playerX, y: playerY, steps, team: teamPayload }));
-  document.getElementById('encounter-desc').textContent = `Eine Gruppe von Gegnern (${waveCount} Welle${waveCount>1?'n':''} à 4) versperrt den Weg.`;
+  document.getElementById('encounter-desc').textContent = `Eine Gruppe von Gegnern (${waveCount} Welle${waveCount>1?'n':''} à 3) versperrt den Weg.`;
   document.getElementById('encounter-overlay').classList.add('show');
 }
 document.getElementById('enter-battle-btn').addEventListener('click', () => {
