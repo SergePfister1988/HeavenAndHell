@@ -1584,7 +1584,7 @@ function renderMapEditor(){
       <div class="row3" style="margin-top:12px;">
         <div class="field"><label>Level von</label><input type="number" id="map-level-min" value="${currentMap.level_min}" min="1" max="50" /></div>
         <div class="field"><label>Level bis</label><input type="number" id="map-level-max" value="${currentMap.level_max}" min="1" max="50" /></div>
-        <div class="field"><label>Wellenanzahl (je 4 Gegner)</label>
+        <div class="field"><label>Wellenanzahl (je 3 Gegner)</label>
           <select id="map-wave-count">
             ${[1,2,3,4].map(n=>`<option value="${n}" ${currentMap.wave_count===n?'selected':''}>${n}</option>`).join('')}
           </select>
