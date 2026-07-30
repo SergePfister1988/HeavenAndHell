@@ -686,10 +686,8 @@ function unitSlotHtml(u, idx){
   if (u.battleSpriteUrl) { visual = `<img class="battle-img" src="${u.battleSpriteUrl}" alt="" />`; hasImage = true; }
   else if (u.spriteUrl) { visual = `<img class="portrait-img" src="${u.spriteUrl}" alt="" />`; hasImage = true; }
   const hpPct = Math.max(0, u.hp/u.maxHp*100);
-  const scale = Math.max(0.8, 1 - idx*0.07); // dezente Tiefe: weiter hinten = etwas kleiner, keine Positionsverschiebung
-  const slotStyle = `transform:scale(${scale}); transform-origin:bottom center;`;
   return `
-    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}" style="${slotStyle}">
+    <div class="unit-slot ${u.hp<=0?'dead':''}" data-uid="${u.uid}">
       <div class="u-topbar">
         <div class="u-barwrap">
           <span class="level-badge-mini" style="background:${badgeColor};">Lv${u.level}</span>
